@@ -28,15 +28,16 @@ export type SidebarRowKind =
   | "spacer" | "footer-open" | "footer-archived" | "archive-group";
 
 /**
- * Per-kind row heights: one rhythm. Session rows, the section headers (a
- * project's, the pinned section's, the archive's projects), the empty
- * group's note and the footer are one height, 28px (44px on a phone, a
- * finger's minimum for the rows); only "show more" is a step shorter. A
- * spacer opens the list and parts the pinned section from the groups, one
- * group from the next and the groups from the footer.
+ * Per-kind row heights: one rhythm. Every row of the tree is one height,
+ * 30px: session rows, the section headers (a project's, the pinned
+ * section's, the archive's projects), the empty group's note, "show more"
+ * and the footer. A phone's rows are 44px, a finger's minimum, and only its
+ * "show more" is a step shorter. A spacer opens the list and parts the
+ * pinned section from the groups and the groups from the footer; two groups
+ * have no gap at all, their headers sitting right on the rows above them.
  */
 export const SIDEBAR_ROW_HEIGHTS: Record<SidebarLayout, Record<SidebarRowKind, number>> = {
-  desktop: { "pinned-header": 28, session: 28, "pinned-more": 26, group: 28, "group-more": 26, "group-empty": 28, spacer: 8, "footer-open": 28, "footer-archived": 28, "archive-group": 28 },
+  desktop: { "pinned-header": 30, session: 30, "pinned-more": 30, group: 30, "group-more": 30, "group-empty": 30, spacer: 8, "footer-open": 30, "footer-archived": 30, "archive-group": 30 },
   mobile: { "pinned-header": 44, session: 44, "pinned-more": 36, group: 44, "group-more": 36, "group-empty": 44, spacer: 8, "footer-open": 44, "footer-archived": 44, "archive-group": 44 },
 };
 export const GROUP_VISIBLE_LIMIT = 6;
@@ -62,7 +63,7 @@ export type SidebarRow =
   | { kind: "group"; key: string; project: SidebarProject; expanded: boolean; running: number; awaiting: number; unread: number }
   | { kind: "group-more"; key: string; projectKey: string; hidden: number; canShowLess: boolean; nextShown: number }
   | { kind: "group-empty"; key: string; project: SidebarProject }
-  | { kind: "spacer"; key: "top-spacer" | "pinned-spacer" | "footer-spacer" | `group-spacer:${string}` }
+  | { kind: "spacer"; key: "top-spacer" | "pinned-spacer" | "footer-spacer" }
   | { kind: "footer-open"; key: "footer-open" }
   | { kind: "footer-archived"; key: "footer-archived"; count: number }
   | { kind: "archive-group"; key: string; project: SidebarProject; count: number; expanded: boolean };
@@ -520,10 +521,11 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
     .filter((project) => !rank.has(project.key) && recordable(project))
     .map((project) => project.key);
 
-  for (const [index, project] of orderedProjects.entries()) {
-    // A gap between two groups, open or folded (#1338): headers right on the
-    // rows above them read as one list.
-    if (index > 0) rows.push({ kind: "spacer", key: `group-spacer:${project.key}` });
+  for (const project of orderedProjects) {
+    // No gap between two groups, open or folded: headers right on the rows
+    // above them read as one list (#1338), and a group's rows belong to its
+    // header. Only the pinned section above them and the footer below them
+    // are parted from the groups by a spacer.
     const groupFamilies = projectFamilies.get(project.key) ?? [];
     const expanded = isGroupExpanded(project, input.groupExpansion);
     const { running, awaiting, unread } = activityCounts(groupFamilies, input);
@@ -700,8 +702,8 @@ export function getRowOffsets(rows: readonly SidebarRow[], layout: SidebarLayout
  * One project group as it is laid out: from its header row to the bottom of
  * its last row (its sessions, "show more", the empty note). `gapAbove` and
  * `gapBelow` are the spacer rows that part it from what is next to it: the
- * pinned section above the first, another group, the footer below the last.
- * Two neighbours share the spacer between them.
+ * pinned section above the first, the footer below the last. Two neighbours
+ * share the spacer between them; between two groups there is none (0).
  */
 export interface GroupBlock { key: string; pinned: boolean; top: number; bottom: number; gapAbove: number; gapBelow: number }
 

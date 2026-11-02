@@ -108,6 +108,9 @@
  */
 .session-tree-chevron {
   flex: none;
+  /* Nudged down from the box's centre, where the row would put it: the
+     chevron reads better against the label's own centre. */
+  margin-top: 4px;
   color: var(--text-dim);
   transition: transform 0.15s;
 }
@@ -204,7 +207,7 @@
 /* The selected row's mark, the tree's one use of the accent: a bar on the
    box's left edge, before the chevron column, so it is found at a glance
    even where --bg-selected is faint. The row (absolutely positioned) is its
-   containing block; inset from the top and bottom (a 14px bar on a 28px
+   containing block; inset from the top and bottom (a 16px bar on a 30px
    row, 20px on a phone's 44px), the row's rounded corners never clip it.
    A delete confirmation's red frame stands alone. */
 .session-tree-session.is-selected:not(.is-confirming)::before {
@@ -301,14 +304,14 @@ a.session-tree-main {
   }
 }
 
-/* Titles are the content: the text color, the file tree's 12px (13px on a
-   phone, below); the selected one a little heavier. */
+/* Titles are the content: the text color at the app's own UI type (`html,
+   body`: 14px, the chat's and a header's, as the tree sets none of its own);
+   the selected one a little heavier. */
 .session-tree-title {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--text);
-  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -544,10 +547,10 @@ a.session-tree-main {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
-/* While a group is dragged: its block dimmed in place, the drop line in the
-   middle of the spacer it marks (between two groups, next to the pinned
-   section or the footer), and a ghost with the project's name next to the pointer, placed
-   clear of the line (hooks/useGroupDrag.ts). */
+/* While a group is dragged: its block dimmed in place, the drop line where
+   it would land (mid-spacer next to the pinned section or the footer, on the
+   edge between two groups, which have no gap), and a ghost with the project's
+   name next to the pointer, placed clear of the line (hooks/useGroupDrag.ts). */
 .session-tree-drag-source {
   position: absolute;
   right: var(--session-tree-inset-right);
@@ -621,8 +624,8 @@ a.session-tree-main {
   height: 100%;
   padding: 0 0 0 5px;
   color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 600;
+  /* No type of its own: the name inherits the app's UI type (`html, body`:
+     14px, the chat's own), so a header never reads smaller than the rest. */
   text-align: left;
   white-space: nowrap;
 }
@@ -843,13 +846,9 @@ a.session-tree-main {
   font-weight: 400;
 }
 
-/* Phone layout: 44px rows, a step larger type for titles and project names,
-   ⋯ and the group buttons always shown, no archive quick button. */
-.session-tree.is-mobile .session-tree-title,
-.session-tree.is-mobile .session-tree-group-toggle {
-  font-size: 13px;
-}
-
+/* Phone layout: 44px rows, ⋯ and the group buttons always shown, no archive
+   quick button. The rows' type is the app's own on a phone too (no size rule
+   here: titles and project names inherit `html, body`'s). */
 .session-tree.is-mobile .session-tree-more-action {
   display: flex;
   width: 32px;
@@ -930,7 +929,7 @@ a.session-tree-main {
 }
 
 /* With the files below, the toast sits at the bottom of the sessions, above
-   the files section (its height, or folded its 28px row and its line; 36px
+   the files section (its height, or folded its 30px row and its line; 36px
    on a coarse pointer, below), so it never covers the file tree. Still the
    one live region, at the root. */
 .session-sidebar.is-files-below .sidebar-toast-region {
@@ -938,7 +937,7 @@ a.session-tree-main {
 }
 
 .session-sidebar.is-files-below.is-files-collapsed .sidebar-toast-region {
-  bottom: 37px;
+  bottom: 39px;
 }
 
 /* One toolbar row in the cells of the chat's top bar beside it (AppShell):
@@ -1149,7 +1148,7 @@ a.session-tree-main {
    both (a landscape phone, a short window) shrinks the files, never past
    their header row: the sessions' zero basis freezes them at their minimum,
    so the files take the whole shortfall and nothing runs past the root.
-   Folded, it is its header row alone (28px and its line, a height in pixels
+   Folded, it is its header row alone (30px and its line, a height in pixels
    so a fold can move to it), at the bottom, and the sessions take the
    rest. */
 .session-sidebar.is-files-below .sidebar-sessions-panel {
@@ -1160,12 +1159,12 @@ a.session-tree-main {
 .session-sidebar.is-files-below .sidebar-files-panel {
   flex: 0 1 auto;
   height: var(--sidebar-files-height, 320px);
-  min-height: 29px;
+  min-height: 31px;
   border-top: 1px solid var(--border);
 }
 
 .session-sidebar.is-files-below.is-files-collapsed .sidebar-files-panel {
-  height: 29px;
+  height: 31px;
 }
 
 /* A fold or an unfold (only those: .is-files-folding is on the root while
@@ -1232,7 +1231,7 @@ a.session-tree-main {
   flex: none;
   align-items: center;
   gap: 2px;
-  height: 28px;
+  height: 30px;
   padding: 0 var(--sidebar-files-inset-right) 0 6px;
 }
 
