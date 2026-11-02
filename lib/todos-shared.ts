@@ -240,7 +240,9 @@ export function applyTodoRequest(
   request: TodoRequest,
   context: { now: number; newId?: () => string; doneBy?: TodoDoneBy },
 ): TodosState {
-  const { now } = context;
+  // A caller's clock is stored the way the file keeps it: a time the next read
+  // would drop would otherwise be a change that leaves nothing behind.
+  const now = timestamp(context.now) ?? 0;
   if (request.action === "add") {
     if (state.todos.length >= MAX_TODOS) return state;
     // The same rules as `validTodo`, so what is stored here is what the next
@@ -250,6 +252,9 @@ export function applyTodoRequest(
     if (title === undefined || project === undefined) return state;
     const note = request.note === undefined ? undefined : todoNote(request.note);
     const id = context.newId ? context.newId() : randomTodoId(new Set(state.todos.map((todo) => todo.id)));
+    // An injected id the file could not carry is no id: storing it would make a
+    // todo the next read drops.
+    if (!validId(id)) return state;
     const todo: Todo = {
       id,
       title,
