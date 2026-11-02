@@ -28,6 +28,7 @@
 | D4 | 点击行 | 点击即开始执行（已有会话正在跑时打开该会话，不重复启动） |
 | D5 | 状态集 | 待开始 / 进行中 / 待确认 / 已完成；无「取消」，不要即删除 |
 | D6 | 入口 | 侧栏 footer 新增一行「待办 · N」，与 `Open another project…` / `Archived` 并列 |
+| D7 | 代码布局 | 按当前设计（方案 A）实现，但**文件尽量独立**：功能主体落在新文件里，对上游文件的修改压到最小、可锚定的 hunk，便于长期 rebase `origin/main` |
 
 ### 与 CONTRIBUTING 的偏离（本项目 fork 内接受）
 
@@ -151,10 +152,59 @@
 - 本文件是设计记录，落地后由 `docs/agents/todos.md` 取代长期维护。
 
 ## 11. 风险
-
 | 风险 | 缓解 |
 |---|---|
 | 内置扩展与 chat-only / 子代理 / 工具预设的交互出错 | 扩展只在任务会话注入；单测覆盖 chat-only 与子代理不加载它的路径 |
 | 一次点击发起多个会话 | `start` 服务端串行 + running 判重（6.1） |
 | 数据文件成为 Pi Web 私有的第二份状态源 | 接受（fork 内决策），文档明确记录偏离 CONTRIBUTING 的哪几条 |
 | 待确认态依赖 running 轮询，空档期内可能短暂显示错态 | 派生逻辑幂等、无写回，最多一次轮询间隔的不一致 |
+
+## 12. 文件布局与上游合并策略（D7）
+
+`dev` 是「上游 main + 少量本地提交」，每次升级靠 `git rebase origin/main`。因此功能主体必须落在**上游不存在的新文件**里，对上游文件的修改只允许小段、可锚定的加法。
+
+### 12.1 新文件（与上游零交集，merge 永不冲突）
+
+| 文件 | 职责 |
+|---|---|
+| `lib/todos.ts` | store：读 / 写 / 锁 / 原子写 / revision / 坏文件备份 / 状态派生 |
+| `lib/todos-shared.ts` | client-safe 类型、请求解析、展示态派生（可分给客户端用） |
+| `app/api/todos/route.ts` | `GET` / `POST`（add / update / complete / reopen / delete / start） |
+| `lib/builtin-todo-extension.ts` | `createTodoCompleteExtension({ todoId })`，注册无参工具 `todo_complete` |
+| `components/TodoPanel.tsx` | 右栏面板：分组、新建、行与菜单 |
+| `components/todo-panel-helpers.ts` | 面板的纯函数（排序、分组、文案 key、请求封装） |
+| `hooks/useTodos.ts` | 客户端读写与合并 running 状态 |
+| `lib/todos.test.mjs`、`app/api/todos/route.test.mjs`、`components/TodoPanel.test.mjs` | 测试 |
+| `docs/agents/todos.md` | 长期维护的 topic note |
+
+### 12.2 上游文件触点（全部为加法，逐处 1 个 hunk）
+
+| 文件 | 改动量 | 锚点 |
+|---|---|---|
+| `lib/builtin-extensions.ts` | ~5 行：`PiWebBuiltinExtensionsOptions` 加 `todoId?`，返回数组里 push 一个 `builtin("todo", createTodoCompleteExtension(todoId))` | `createPiWebBuiltinExtensions` 函数体 |
+| `lib/rpc-manager.ts` | ~3 行：把 `todoId` 透传给上面 | `createPiWebBuiltinExtensions(` 调用点 |
+| `lib/session-tree.ts` | ~4 行：row kind 联合加 `footer-todos`、两张高度表各加一项、footer 处 push 一行 | `SidebarRowKind` / `SIDEBAR_ROW_HEIGHTS` / `rows.push({ kind: "footer-open" … })` |
+| `components/SessionTree.tsx` | ~8 行：新增一个 `case "footer-todos"` | `case "footer-open"` 旁 |
+| `components/SessionSidebar.tsx` | ~10 行：一个 `onOpenTodos` 回调 + 传给 tree | 现有 footer 处理处 |
+| `components/TabBar.tsx` | ~2 行：`kind` 联合加 `"todo"`，标签映射加一项 | `kind?: "terminal" \| "agent" \| "side"` |
+| `components/AppShell.tsx` | ~15 行：打开 tab 的处理函数 + 渲染分支 | 现有 `openSubagentTab` / tab 渲染处 |
+| `app/i18n/*.ts`（en / zh-CN / zh-TW） | 每份 ~10 个 key | 末尾追加 |
+| `AGENTS.md` | 文件地图 + topic notes 各一行 | 对应列表 |
+
+若某处上游改动导致 rebase 冲突，冲突面被限制在上表的单行/单块内，不会牵动功能主体。
+
+### 12.3 提交切分（让 rebase 只在小范围起冲突）
+
+按关注点分开提交，顺序如下：
+
+1. `feat(todos): store 与 /api/todos 路由 + 测试`（纯新文件，上游零冲突）
+2. `feat(todos): todo_complete 内置扩展`（只有 `builtin-todo-extension.ts` 新文件 + 2 个上游文件的加法）
+3. `feat(todos): 右栏面板与侧栏入口`（TodoPanel 新文件 + UI 触点）
+4. `feat(todos): i18n 与文档`（三份文案 + `docs/agents/todos.md` + `AGENTS.md`）
+
+### 12.4 明确不做的隔离手段
+
+- 不引入 `extension_ui_request` 新字段、不改 `ctx.ui.*` 选项。
+- 不为待办单独造一个 UI-slot/插件机制。
+- 不改 pi 的会话文件格式（待办不进 `session.jsonl`）。
+
