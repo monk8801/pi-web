@@ -32,8 +32,10 @@ export function todoMenuItems(display: TodoDisplayStatus): TodoMenuEntry[] {
   return [
     // A run that is already live cannot be started again.
     { command: "run", disabled: display === "running" },
-    // Only a run that ended without saying so needs a person's confirmation.
-    ...(display === "confirm" ? [{ command: "done" as const, disabled: false }] : []),
+    // A person may always close a to-do by hand: a run that ended without saying
+    // so is the usual case, but a task done outside pi (or one nobody watched)
+    // is just as finished. A running session keeps running; only the to-do ends.
+    { command: "done", disabled: false },
     { command: "edit", disabled: false },
     { command: "move", disabled: false },
     { command: "delete", disabled: false },

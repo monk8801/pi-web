@@ -623,7 +623,7 @@ export const zhTWLocale: LocalePlugin = {
     "todos.save": "儲存",
     "todos.run": "執行",
     "todos.moveProject": "轉移專案…",
-    "todos.markDone": "標記完成",
+    "todos.markDone": "已完成",
     "todos.alreadyRunning": "已在執行",
     "todos.cancel": "取消",
     "todos.filterProjects": "篩選專案",

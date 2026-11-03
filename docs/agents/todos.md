@@ -101,13 +101,19 @@ The menu (`components/todo-menu.ts` decides its entries) offers, per state:
 
 | state | entries |
 |---|---|
-| not started | Run · Edit · Move to project… · Delete |
+| not started | Run · Mark done · Edit · Move to project… · Delete |
 | waiting for a person | Run · Mark done · Edit · Move to project… · Delete |
-| running | Run (disabled) · Edit · Move to project… · Delete |
+| running | Run (disabled) · Mark done · Edit · Move to project… · Delete |
 | done | Reopen · Delete |
 
 "A finished to-do is a record": it can be reopened (which makes it editable
 again) or deleted, never edited or moved in place.
+
+"Mark done" is offered in every state that is not done — a task finished outside
+pi is as finished as one the agent closed, and a run that ends without saying so
+leaves the row waiting for exactly that click. Marking a *running* one done ends
+the to-do, not the session: the run keeps going, and the row's state follows the
+to-do (`done`), not the live session.
 
 Edit is its own dialog (`components/TodoEditDialog.tsx`), not a menu body: a note
 can be long, and a form that closes on the next click outside loses what was
