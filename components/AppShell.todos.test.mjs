@@ -19,6 +19,14 @@ test("the right panel can host the todo tab", () => {
   assert.match(shell, /setActiveFileTabId\("todo"\)/);
 });
 
+test("the todo panel takes the panel's space alone, not below the empty-viewer note", () => {
+  // One exclusive chain: the to-do branch heads the same ternary as the file
+  // viewer, so the "no file open" fallback can never render above it (that put
+  // the panel out of view, height: 100% and overflow: hidden).
+  assert.match(shell, /\{todoTabOpen && activeFileTabId === "todo" \? \(/);
+  assert.match(shell, /\n\s*\) : activeFileTab\?\.filePath \? \(/);
+});
+
 test("the sidebar's footer row opens the panel and shows the unfinished count", () => {
   assert.match(shell, /onOpenTodos=\{handleOpenTodos\}/);
   assert.match(shell, /todoCount=\{todoCount\}/);

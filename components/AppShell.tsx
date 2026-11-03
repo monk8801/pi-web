@@ -2937,7 +2937,30 @@ export function AppShell() {
 
         {/* Only the active viewer is mounted. Lightweight per-tab state is restored on activation. */}
         <div style={{ flex: 1, minHeight: 0, overflow: "hidden", paddingBottom: "env(safe-area-inset-bottom)" }}>
-          {activeFileTab?.filePath ? (
+          {todoTabOpen && activeFileTabId === "todo" ? (
+            <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", minHeight: 0 }}>
+              <TodoPanel
+                cwd={selectedSession?.cwd ?? effectiveNewSessionCwd ?? null}
+                runningSessionIds={runningSessionIds}
+                todos={todos.todos}
+                projectNames={todoProjectNames}
+                onOpenSession={(sessionId, cwd) => handleOpenStartedSession({
+                  id: sessionId,
+                  path: "",
+                  cwd,
+                  name: undefined,
+                  created: new Date().toISOString(),
+                  modified: new Date().toISOString(),
+                  messageCount: 0,
+                  firstMessage: "",
+                  transient: true,
+                })}
+                onStart={handleStartTodo}
+                run={todos.run}
+                error={todos.error}
+              />
+            </div>
+          ) : activeFileTab?.filePath ? (
             <FileViewer
               key={`${fileWorkspaceGeneration}:${activeFileTab.id}:${activeFileTab.viewerRevision ?? 0}`}
               filePath={activeFileTab.filePath}
@@ -2978,28 +3001,6 @@ export function AppShell() {
               />
             </div>
           ))}
-          {todoTabOpen && activeFileTabId === "todo" && (
-            <TodoPanel
-              cwd={selectedSession?.cwd ?? effectiveNewSessionCwd ?? null}
-              runningSessionIds={runningSessionIds}
-              todos={todos.todos}
-              projectNames={todoProjectNames}
-              onOpenSession={(sessionId, cwd) => handleOpenStartedSession({
-                id: sessionId,
-                path: "",
-                cwd,
-                name: undefined,
-                created: new Date().toISOString(),
-                modified: new Date().toISOString(),
-                messageCount: 0,
-                firstMessage: "",
-                transient: true,
-              })}
-              onStart={handleStartTodo}
-              run={todos.run}
-              error={todos.error}
-            />
-          )}
           {activeAgentTab && (
             <SessionChatPanel
               key={activeAgentTab.sessionId}
