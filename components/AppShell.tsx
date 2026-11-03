@@ -1046,8 +1046,13 @@ export function AppShell() {
     if (isMobile) setSidebarOpen(false);
   }, [isMobile]);
   const handleOpenStartedSession = useCallback((session: SessionInfo) => {
+    // Same as selecting a session: an unwritten draft in a fresh composer is
+    // parked under its own cwd, so coming back to it keeps the text.
+    const activeDraftKey = activeNewSessionDraftKeyRef.current;
+    const activeDraftCwd = newSessionCwd ?? (selectedSession === null ? activeCwd : null);
+    if (activeDraftKey && activeDraftCwd) rekeyDraft(activeDraftKey, parkedNewSessionDraftKey(activeDraftCwd));
     handleSessionCreated(session, null);
-  }, [handleSessionCreated]);
+  }, [activeCwd, handleSessionCreated, newSessionCwd, selectedSession]);
   const handleStartTodo = useCallback(async (todo: Todo): Promise<string | undefined> => {
     const { sessionId } = await todos.run({ kind: "start", id: todo.id });
     return sessionId;
@@ -1358,6 +1363,14 @@ export function AppShell() {
   };
 
   const handleCloseFileTab = useCallback((tabId: string) => {
+    if (tabId === "todo") {
+      setTodoTabOpen(false);
+      setActiveFileTabId((cur) => (cur !== tabId
+        ? cur
+        : fileTabs.at(-1)?.id ?? terminalTabs.at(-1)?.id ?? lastAgentTabId(agentTabs)));
+      if (fileTabs.length === 0 && terminalTabs.length === 0 && agentTabs.length === 0) setRightPanelOpen(false);
+      return;
+    }
     if (terminalTabs.some((tab) => tab.id === tabId)) {
       setTerminalTabs((tabs) => tabs.map((tab) => tab.id === tabId && !tab.closing ? { ...tab, closing: "close" } : tab));
       return;

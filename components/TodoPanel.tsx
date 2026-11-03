@@ -70,6 +70,18 @@ export function TodoPanel({ cwd, runningSessionIds, todos, projectNames = {}, on
   const [draft, setDraft] = useState("");
   const groups = useMemo(() => groupTodos(todos, runningSessionIds, projectNames), [todos, runningSessionIds, projectNames]);
 
+  /** A click or a key on a row: open its run, or start one. */
+  const open = (todo: Todo, display: TodoDisplayStatus) => {
+    if (display === "done") return;
+    if (display === "running" && todo.sessionId) {
+      onOpenSession(todo.sessionId, todo.project);
+      return;
+    }
+    void onStart(todo).then((sessionId) => {
+      if (sessionId) onOpenSession(sessionId, todo.project);
+    });
+  };
+
   const add = async () => {
     const title = draft.trim();
     if (!title || !cwd) return;
@@ -108,15 +120,16 @@ export function TodoPanel({ cwd, runningSessionIds, todos, projectNames = {}, on
               data-project={group.project}
               data-state={display}
               title={todo.note ?? todo.title}
-              onClick={() => {
-                if (display === "done") return;
-                if (display === "running" && todo.sessionId) {
-                  onOpenSession(todo.sessionId, todo.project);
-                  return;
-                }
-                void onStart(todo).then((sessionId) => {
-                  if (sessionId) onOpenSession(sessionId, todo.project);
-                });
+              // The row is the action, so it is reachable and named as a button;
+              // a done row has nothing to start and takes no focus.
+              {...(display === "done" ? {} : { role: "button", tabIndex: 0 })}
+              onClick={() => open(todo, display)}
+              onKeyDown={(event) => {
+                if (display === "done" || event.target !== event.currentTarget) return;
+                if (event.key !== "Enter" && event.key !== " ") return;
+                // Space on a focused row must not scroll the panel.
+                event.preventDefault();
+                open(todo, display);
               }}
             >
               <span className="todo-row-state" aria-hidden="true" />

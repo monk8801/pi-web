@@ -34,6 +34,11 @@ test("a started session is opened the way a created one is", () => {
   assert.match(shell, /handleSessionCreated\(session, null\)/);
 });
 
+test("the todo tab closes, and a fresh composer's draft is parked, not lost", () => {
+  assert.match(shell, /if \(tabId === "todo"\) \{\s*setTodoTabOpen\(false\);/);
+  assert.match(shell, /rekeyDraft\(activeDraftKey, parkedNewSessionDraftKey\(activeDraftCwd\)\);\s*handleSessionCreated\(session, null\);/);
+});
+
 test("the panel's styles use the theme's tokens only, and the rows keep the 30px rhythm", () => {
   const rules = css.slice(css.indexOf(".todo-panel"));
   assert.ok(rules.length > 0, "no .todo-panel rule");

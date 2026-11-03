@@ -91,3 +91,12 @@ test("without a project to add to, the composer is disabled and says why", () =>
   assert.match(html, /disabled=""/);
   assert.match(html, /Open a project first/);
 });
+
+test("a row is a button to the keyboard, and a done row is not", () => {
+  const open = render({ todos: [todo({})] });
+  assert.match(open, /data-state="open"[^>]*role="button" tabindex="0"/);
+  // The row's own buttons keep the keyboard to themselves.
+  assert.match(open, /class="todo-row-more"/);
+  const done = render({ todos: [todo({ status: "done", doneAt: now })] });
+  assert.doesNotMatch(done, /role="button" tabindex="0"/);
+});
