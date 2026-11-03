@@ -109,11 +109,17 @@ The menu (`components/todo-menu.ts` decides its entries) offers, per state:
 "A finished to-do is a record": it can be reopened (which makes it editable
 again) or deleted, never edited or moved in place.
 
-Edit swaps the menu's body for a small form (title and note, the worktree form's
-shape) and saves through an `update`; a blank title cannot be saved and an
-emptied note clears it (`note: null`). Move swaps the body for the sidebar's
-project list, the current one checked, and saves the chosen `project` through the
-same `update`. Both keep the menu open (`event.keepOpen()`), which is what made
-"Move to project…" do nothing at first: the menu closed on select before the
-swapped body could be seen. A waiting row keeps its inline "Done" button.
+Edit is its own dialog (`components/TodoEditDialog.tsx`), not a menu body: a note
+can be long, and a form that closes on the next click outside loses what was
+typed. It is the project trust dialog's shape — backdrop, `openStackedDialog()`
+for Escape and focus, only the body scrolling, the note 40vh tall and resizable —
+and **nothing but Save, Cancel and Escape dismisses it**: no backdrop click. A
+blank title cannot be saved; an emptied note clears it (`note: null`). A write
+that fails keeps the dialog open with its text.
+
+Move swaps the menu's body for the sidebar's project list, the current one
+checked, and saves the chosen `project` through the same `update`. It keeps the
+menu open (`event.keepOpen()`), which is what made "Move to project…" do nothing
+at first: the menu closed on select before the swapped body could be seen. A
+waiting row keeps its inline "Done" button.
 
