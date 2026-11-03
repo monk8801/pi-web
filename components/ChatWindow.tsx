@@ -20,6 +20,7 @@ import { MarkdownBody } from "./MarkdownBody";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 import { ChatMinimap, useMessageRefs } from "./ChatMinimap";
 import { ExtensionStatusBar } from "./ExtensionStatusBar";
+import { RunContextChip } from "./RunContextChip";
 import { AnsiText } from "./AnsiText";
 import { useI18n } from "@/hooks/useI18n";
 import { phaseLabel } from "@/lib/chat-phase-label";
@@ -1511,6 +1512,11 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
           </div>
         )}
         {chatInputElement}
+        {/* The composer's own insets (`ChatInput`'s shell: 16px, 52px on a desktop
+            for the minimap), so the branch sits on the input's left edge. */}
+        <div style={{ padding: "0 16px", paddingRight: isMobile ? 16 : 52 }}>
+          <RunContextChip session={session} />
+        </div>
         <ExtensionStatusBar
           statuses={extensionStatuses}
           widgets={extensionWidgets}

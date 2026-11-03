@@ -2893,3 +2893,42 @@ span.token.table {
     display: none !important;
   }
 }
+
+/* Which branch the shown session runs on (components/RunContextChip.tsx): one
+   quiet line under the composer, in pi's TUI footer's spirit. The composer's own
+   side padding, so it sits on the input's left edge; dim, one step smaller than
+   the input's text, and never wider than the composer (a long branch is cut at
+   its left, where it differs least, as the sidebar's rows do). */
+.run-context {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  max-width: 60%;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.4;
+  user-select: none;
+}
+
+/* A linked worktree's branch carries the accent, as a row's linked checkout does;
+   the main checkout's stays dim. The accent is never the text's, only the icon's. */
+.run-context-icon {
+  flex: none;
+  color: inherit;
+}
+
+.run-context.is-worktree .run-context-icon {
+  color: var(--accent);
+}
+
+.run-context-branch {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Cut at the left: a branch's tail (the part that tells two apart) survives. */
+  direction: rtl;
+  text-align: left;
+}

@@ -217,6 +217,7 @@ components/
   TodoEditDialog.tsx       editing a to-do: title and note, dismissed only by Save, Cancel or Escape
   todo-menu.ts             what that menu offers per state, and the projects a to-do can move to
   ChatWindow.tsx           chat composition + completion sound
+  RunContextChip.tsx       the shown session's git branch, under its composer
   ChatInput.tsx            input bar + model/thinking/tools/compact controls
   MessageView.tsx          one message (user/assistant/toolCall/toolResult)
   CodemodeToolView.tsx     codemode card: the tool calls its script made
