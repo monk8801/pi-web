@@ -213,7 +213,8 @@ components/
   WorktreeCreateForm.tsx   "New worktree…" form, a SidebarMenu body
   SidebarToast.tsx         sidebar one-line toast: archive Undo/View, failed saves
   SidebarIcons.tsx         sidebar stroke icons
-  TodoPanel.tsx            right-panel to-do list: grouped by project, one click runs a to-do
+  TodoPanel.tsx            right-panel to-do list: grouped by project, a row opens its menu
+  todo-menu.ts             what that menu offers per state, and the projects a to-do can move to
   ChatWindow.tsx           chat composition + completion sound
   ChatInput.tsx            input bar + model/thinking/tools/compact controls
   MessageView.tsx          one message (user/assistant/toolCall/toolResult)

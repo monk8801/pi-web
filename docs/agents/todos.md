@@ -90,9 +90,16 @@ turn is not a finished task.
 ("Todos · N", `lib/session-tree.ts`'s `footer-todos`) into the right panel as a
 `kind: "todo"` tab (`components/TabBar.tsx`, wired in `components/AppShell.tsx`).
 Rows group by project (`groupTodos()`, named by the project's display name when
-one exists), unfinished first, done at the bottom. A click starts the to-do; a
-running one opens its session instead; a done row does nothing. A waiting row
-offers "Done"; the ✕/↺ action deletes or reopens.
+one exists), unfinished first, done at the bottom.
+
+**Nothing runs on a click.** A row opens a menu — right-click at the pointer, or
+a click/Enter/Space for touch and keyboard — and the menu's "Run" starts it: a
+plain click was one slip away from starting a pi session in the wrong project.
+The menu (`components/todo-menu.ts` decides its entries) offers, per state: Run
+(disabled while that run is live), "Mark done" for a waiting run, "Move to
+project…" (the sidebar's projects, the current one checked, applied as an
+`update` with the new `project`), Reopen for a finished one, and Delete alone at
+the end. A waiting row also keeps its inline "Done" button.
 
 `hooks/useTodos.ts` holds the data: one action at a time, the server's answer is
 the truth (no optimistic merge — the list is small and every answer carries the

@@ -76,14 +76,17 @@ test("an empty list says so, and a failure is announced", () => {
   assert.match(withError, /holds the todos lock/);
 });
 
-test("only a waiting row offers the confirm click; a done row offers reopen", () => {
+test("only a waiting row offers the confirm click; every row offers its menu", () => {
   const waiting = render({ todos: [todo({ sessionId: "s-1" })] });
   assert.match(waiting, /class="todo-row-confirm"/);
   const done = render({ todos: [todo({ status: "done", doneAt: now })] });
   assert.doesNotMatch(done, /class="todo-row-confirm"/);
-  assert.match(done, /↺/);
+  // Nothing runs on a click: the row and its ⋯ both open the menu instead.
+  assert.match(done, /class="todo-row-more"/);
+  assert.match(done, /aria-haspopup="menu"/);
   const open = render({ todos: [todo({})] });
-  assert.match(open, /✕/);
+  assert.match(open, /class="todo-row-more"/);
+  assert.doesNotMatch(open, /↺/);
 });
 
 test("without a project to add to, the composer is disabled and says why", () => {

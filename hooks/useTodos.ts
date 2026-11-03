@@ -9,7 +9,7 @@ import type { Todo } from "@/lib/todos-shared";
 
 export type TodoAction =
   | { kind: "add"; title: string; project: string; note?: string }
-  | { kind: "update"; id: string; title?: string; note?: string | null }
+  | { kind: "update"; id: string; title?: string; note?: string | null; project?: string }
   | { kind: "complete"; id: string }
   | { kind: "reopen"; id: string }
   | { kind: "delete"; id: string }

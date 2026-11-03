@@ -2944,6 +2944,7 @@ export function AppShell() {
                 runningSessionIds={runningSessionIds}
                 todos={todos.todos}
                 projectNames={todoProjectNames}
+                projects={sidebarNewSessionContext?.projects ?? []}
                 onOpenSession={(sessionId, cwd) => handleOpenStartedSession({
                   id: sessionId,
                   path: "",
