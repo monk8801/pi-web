@@ -25,7 +25,7 @@ import { workspaceKeyOf } from "./workspace-memory";
 export type SidebarLayout = "desktop" | "mobile";
 export type SidebarRowKind =
   | "pinned-header" | "session" | "pinned-more" | "group" | "group-more" | "group-empty"
-  | "spacer" | "footer-open" | "footer-archived" | "archive-group";
+  | "spacer" | "footer-open" | "footer-todos" | "footer-archived" | "archive-group";
 
 /**
  * Per-kind row heights: one rhythm. Every row of the tree is one height,
@@ -37,8 +37,8 @@ export type SidebarRowKind =
  * have no gap at all, their headers sitting right on the rows above them.
  */
 export const SIDEBAR_ROW_HEIGHTS: Record<SidebarLayout, Record<SidebarRowKind, number>> = {
-  desktop: { "pinned-header": 30, session: 30, "pinned-more": 30, group: 30, "group-more": 30, "group-empty": 30, spacer: 8, "footer-open": 30, "footer-archived": 30, "archive-group": 30 },
-  mobile: { "pinned-header": 44, session: 44, "pinned-more": 36, group: 44, "group-more": 36, "group-empty": 44, spacer: 8, "footer-open": 44, "footer-archived": 44, "archive-group": 44 },
+  desktop: { "pinned-header": 30, session: 30, "pinned-more": 30, group: 30, "group-more": 30, "group-empty": 30, spacer: 8, "footer-open": 30, "footer-todos": 30, "footer-archived": 30, "archive-group": 30 },
+  mobile: { "pinned-header": 44, session: 44, "pinned-more": 36, group: 44, "group-more": 36, "group-empty": 44, spacer: 8, "footer-open": 44, "footer-todos": 44, "footer-archived": 44, "archive-group": 44 },
 };
 export const GROUP_VISIBLE_LIMIT = 6;
 export const PINNED_VISIBLE_LIMIT = 8;
@@ -65,6 +65,8 @@ export type SidebarRow =
   | { kind: "group-empty"; key: string; project: SidebarProject }
   | { kind: "spacer"; key: "top-spacer" | "pinned-spacer" | "footer-spacer" }
   | { kind: "footer-open"; key: "footer-open" }
+  /** The to-do list's way in; its count is the unfinished ones. */
+  | { kind: "footer-todos"; key: "footer-todos"; count: number }
   | { kind: "footer-archived"; key: "footer-archived"; count: number }
   | { kind: "archive-group"; key: string; project: SidebarProject; count: number; expanded: boolean };
 
@@ -87,6 +89,8 @@ export interface SessionTreeInput {
   /** Families revealed beyond the base limit by "show more", per projectKey or PINNED_MORE_KEY. */
   moreShown: Readonly<Record<string, number>>;
   pinnedCollapsed: boolean;
+  /** Unfinished to-dos, shown on the footer row that opens the panel; absent reads as 0. */
+  todoCount?: number;
 }
 
 export interface SessionTreeModel {
@@ -547,6 +551,8 @@ export function buildSessionTree(input: SessionTreeInput): SessionTreeModel {
   // section from them.
   if (orderedProjects.length > 0) rows.push({ kind: "spacer", key: "footer-spacer" });
   rows.push({ kind: "footer-open", key: "footer-open" });
+  // Always there, not only with a count: this row is the way to the first to-do.
+  rows.push({ kind: "footer-todos", key: "footer-todos", count: input.todoCount ?? 0 });
   if (archivedCount > 0) rows.push({ kind: "footer-archived", key: "footer-archived", count: archivedCount });
 
   return { rows, projects: orderedProjects, archivedCount, unorderedKeysByBand, projectKeysToRecord };

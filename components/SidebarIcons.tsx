@@ -49,6 +49,15 @@ export function MoreIcon(props: SidebarIconProps) {
   );
 }
 
+/** The footer's to-do row: a checklist. */
+export function ListTodoIcon(props: SidebarIconProps) {
+  return (
+    <SidebarIcon {...props}>
+      <path d="M9 6h11M9 12h11M9 18h11M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" />
+    </SidebarIcon>
+  );
+}
+
 export function ArchiveIcon(props: SidebarIconProps) {
   return (
     <SidebarIcon {...props}>

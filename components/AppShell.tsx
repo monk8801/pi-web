@@ -18,6 +18,7 @@ import { ToolDefinitionsPanel } from "./ToolDefinitionsPanel";
 import { AgentSessionPanel } from "./AgentSessionPanel";
 import { DebugPanel, DebugPanelBoundary } from "./DebugPanel";
 import { SessionChatPanel } from "./SessionChatPanel";
+import { TodoPanel } from "./TodoPanel";
 import { TerminalPanel } from "./TerminalPanel";
 import { newTerminalTab, restoreTerminalTabs, TERMINAL_TABS_KEY, type TerminalTab } from "./terminal-tab-state";
 import { useTheme } from "@/hooks/useTheme";
@@ -27,6 +28,8 @@ import { useIsMobile, useIsNarrowMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
 import { useAudio } from "@/hooks/useAudio";
+import { useTodos } from "@/hooks/useTodos";
+import type { Todo } from "@/lib/todos-shared";
 import { copyText } from "@/lib/clipboard";
 import { getFileName } from "@/lib/file-paths";
 import { buildAtMentionText, buildFileAtMentionsText, buildFileLineMentionText } from "@/lib/file-fuzzy";
@@ -571,6 +574,11 @@ export function AppShell() {
   // Subagent work tabs are session-scoped and transient: no persistence, and
   // they are dropped when the project changes (they belong to its sessions).
   const [agentTabs, setAgentTabs] = useState<{ sessionId: string; label: string; side?: boolean }[]>([]);
+  // The to-do panel: one right-panel tab, its way in the sidebar's footer row.
+  // The list itself lives here because that row shows its unfinished count.
+  const [todoTabOpen, setTodoTabOpen] = useState(false);
+  const todos = useTodos();
+  const todoCount = useMemo(() => todos.todos.filter((todo) => todo.status !== "done").length, [todos.todos]);
   const panelTabs: Tab[] = [
     ...fileTabs,
     ...terminalTabs.map((tab) => ({
@@ -580,6 +588,7 @@ export function AppShell() {
       kind: "terminal" as const,
       closing: Boolean(tab.closing),
     })),
+    ...(todoTabOpen ? [{ id: "todo", label: translate("todos.tabLabel"), filePath: "", kind: "todo" as const }] : []),
     ...agentTabs.map((tab) => {
       const session = tab.side ? sessionCatalog.find((item) => item.id === tab.sessionId) : undefined;
       const label = session ? sideChatTitle(session, tab.label) : tab.label;
@@ -1017,9 +1026,10 @@ export function AppShell() {
   }, []);
 
   // Called by ChatWindow when a new session gets its real id from pi
-  const handleSessionCreated = useCallback((session: SessionInfo, sourceDraftKey: string) => {
+  const handleSessionCreated = useCallback((session: SessionInfo, sourceDraftKey: string | null) => {
     setRefreshKey((k) => k + 1);
-    if (activeNewSessionDraftKeyRef.current !== sourceDraftKey) return;
+    // A session that already exists (a to-do's start) has no draft to claim.
+    if (sourceDraftKey !== null && activeNewSessionDraftKeyRef.current !== sourceDraftKey) return;
     invalidateWorkspaceRestore();
     activeNewSessionDraftKeyRef.current = null;
     setNewSessionCwd(null);
@@ -1027,6 +1037,25 @@ export function AppShell() {
     hydrateSelectedSession(session.id);
     router.replace(`?session=${encodeURIComponent(session.id)}`, { scroll: false });
   }, [invalidateWorkspaceRestore, router, hydrateSelectedSession]);
+
+  // The to-do panel and the one click that runs a to-do (design §6.1, D4).
+  const handleOpenTodos = useCallback(() => {
+    setTodoTabOpen(true);
+    setActiveFileTabId("todo");
+    setRightPanelOpen(true);
+    if (isMobile) setSidebarOpen(false);
+  }, [isMobile]);
+  const handleOpenStartedSession = useCallback((session: SessionInfo) => {
+    handleSessionCreated(session, null);
+  }, [handleSessionCreated]);
+  const handleStartTodo = useCallback(async (todo: Todo): Promise<string | undefined> => {
+    const { sessionId } = await todos.run({ kind: "start", id: todo.id });
+    return sessionId;
+  }, [todos]);
+  // The sidebar's project names (a group menu's Rename…), so the panel groups by them.
+  const todoProjectNames = useMemo(() => Object.fromEntries(
+    (sidebarNewSessionContext?.projects ?? []).flatMap((project) => (project.alias ? [[project.root, project.alias]] : [])),
+  ), [sidebarNewSessionContext]);
 
   const deliverSessionNotification = useCallback(({
     targetSession,
@@ -1544,6 +1573,8 @@ export function AppShell() {
         hiddenFinishedSessionIds={hiddenFinishedSessionIds}
         onRunningSessionIdsChange={handleRunningSessionIdsChange}
         onSessionsChange={handleSessionsChange}
+        onOpenTodos={handleOpenTodos}
+        todoCount={todoCount}
       />
       <div style={{ padding: "8px", flexShrink: 0, display: "flex", justifyContent: "space-between", gap: 4 }}>
         {([
@@ -2934,6 +2965,28 @@ export function AppShell() {
               />
             </div>
           ))}
+          {todoTabOpen && activeFileTabId === "todo" && (
+            <TodoPanel
+              cwd={selectedSession?.cwd ?? effectiveNewSessionCwd ?? null}
+              runningSessionIds={runningSessionIds}
+              todos={todos.todos}
+              projectNames={todoProjectNames}
+              onOpenSession={(sessionId, cwd) => handleOpenStartedSession({
+                id: sessionId,
+                path: "",
+                cwd,
+                name: undefined,
+                created: new Date().toISOString(),
+                modified: new Date().toISOString(),
+                messageCount: 0,
+                firstMessage: "",
+                transient: true,
+              })}
+              onStart={handleStartTodo}
+              run={todos.run}
+              error={todos.error}
+            />
+          )}
           {activeAgentTab && (
             <SessionChatPanel
               key={activeAgentTab.sessionId}

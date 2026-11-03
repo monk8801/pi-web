@@ -41,6 +41,7 @@ import {
   BranchIcon,
   ChevronIcon,
   FolderPlusIcon,
+  ListTodoIcon,
   MoreIcon,
   PinIcon,
   PlusIcon,
@@ -136,6 +137,8 @@ export interface SessionTreeProps {
   onArchiveGroupMenu?(project: SidebarProject, opener: HTMLElement): void;
   onOpenOtherProject(opener: HTMLElement): void;
   onOpenArchive(): void;
+  /** The footer's to-do row: open the to-do panel in the right panel. */
+  onOpenTodos(): void;
   /** Scroll a row into view (and maybe focus it); see SessionTreeReveal. */
   reveal?: SessionTreeReveal | null;
   /** The reveal request with this id was scrolled to or dropped: the parent lets go of it. */
@@ -1086,6 +1089,15 @@ const PlainRowView = memo(function PlainRowView({
           >
             <FolderPlusIcon size={12} />
             <span className="session-tree-footer-label">{t("sidebar.openOtherProject")}</span>
+          </button>
+        </div>
+      );
+    case "footer-todos":
+      return (
+        <div className="session-tree-row session-tree-footer" style={style} data-row-key={row.key}>
+          <button type="button" className="session-tree-footer-button" onClick={() => handlers.current.onOpenTodos()}>
+            <ListTodoIcon size={12} />
+            <span className="session-tree-footer-label">{t("sidebar.todosCount", { count: row.count })}</span>
           </button>
         </div>
       );
