@@ -616,6 +616,7 @@ export const zhCNLocale: LocalePlugin = {
     "todos.confirmDone": "完成",
     "todos.confirm": "等待你确认",
     "todos.delete": "删除",
+    "todos.editTitleRequired": "标题不能为空",
     "todos.edit": "编辑",
     "todos.editTitle": "标题",
     "todos.editNote": "备注（可选）",

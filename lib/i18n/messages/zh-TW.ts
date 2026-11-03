@@ -616,6 +616,7 @@ export const zhTWLocale: LocalePlugin = {
     "todos.confirmDone": "完成",
     "todos.confirm": "等待你確認",
     "todos.delete": "刪除",
+    "todos.editTitleRequired": "標題不能為空",
     "todos.edit": "編輯",
     "todos.editTitle": "標題",
     "todos.editNote": "備註（選填）",

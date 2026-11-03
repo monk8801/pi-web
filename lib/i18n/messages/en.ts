@@ -616,6 +616,7 @@ export const enLocale: LocalePlugin = {
     "todos.confirmDone": "Done",
     "todos.confirm": "Waiting for your confirmation",
     "todos.delete": "Delete",
+    "todos.editTitleRequired": "A title is required",
     "todos.edit": "Edit",
     "todos.editTitle": "Title",
     "todos.editNote": "Note (optional)",

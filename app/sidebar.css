@@ -1803,23 +1803,135 @@ a.session-tree-main {
   font-size: 12px;
 }
 
-/* The to-do edit form inside its menu: the worktree form's shape, with a label
-   over each field (that form has one field and needs none). */
+/* The to-do edit dialog (components/TodoEditDialog.tsx): a note can be long, so
+   it has room for one and nothing dismisses it but Save, Cancel or Escape. Only
+   the body scrolls, so the buttons stay where they are. */
+.todo-edit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.todo-edit-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 620px;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-panel);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.24);
+}
+
+.todo-edit-dialog:focus {
+  outline: none;
+}
+
+.todo-edit-heading {
+  flex: none;
+  padding: 14px 18px 0;
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.todo-edit-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 12px 18px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.todo-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* The note takes what the dialog has left, so a long one is readable at once. */
+.todo-edit-field-note {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 .todo-edit-label {
-  display: block;
-  margin: 6px 0 3px;
   color: var(--text-muted);
   font-size: 11px;
 }
 
+.todo-edit-input,
 .todo-edit-note {
-  height: auto;
-  /* A note is often several lines: the field starts tall enough to read them and
-     can still be dragged bigger; the menu scrolls past its own max-height. */
-  min-height: 150px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.todo-edit-input {
+  height: 30px;
+}
+
+.todo-edit-note {
+  flex: 1 1 auto;
+  min-height: 40vh;
+  line-height: 1.5;
   resize: vertical;
+}
+
+.todo-edit-buttons {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 18px 14px;
+}
+
+.todo-edit-save,
+.todo-edit-cancel {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
   font: inherit;
   font-size: 12px;
-  line-height: 1.5;
+  cursor: pointer;
+}
+
+.todo-edit-save {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.todo-edit-save:hover:not(:disabled) {
+  background: var(--bg-selected);
+}
+
+.todo-edit-save:disabled,
+.todo-edit-cancel:disabled {
+  color: var(--text-dim);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.todo-edit-cancel:hover:not(:disabled) {
+  background: var(--bg-hover);
 }
