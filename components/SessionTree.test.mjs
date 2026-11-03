@@ -603,3 +603,8 @@ test("the drag ghost is shorter than a header", () => {
   assert.match(cssRule(".session-tree-drag-ghost"), /\n\s*height: 22px;/);
   assert.ok(22 < SIDEBAR_ROW_HEIGHTS.desktop.group, "shorter than a header");
 });
+
+test("the footer's labels are the app's own type, as the rows are", () => {
+  // 14px is `html, body` in app/globals.css: a footer label is content, not meta.
+  assert.match(cssRule(".session-tree-footer-button"), /font-size: 14px;/);
+});
