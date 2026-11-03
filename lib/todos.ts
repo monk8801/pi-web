@@ -1,6 +1,9 @@
-// 待办清单存在 `pi-web-todos.json`（agent 目录下，与 mcp.json、settings.json 同级）。
-// 它记录的是用户输入，所以不重建：写入在进程内排队、跨进程加锁、原子替换，
-// 读不出来的文件被移到一边而不是被覆盖。规则在 `lib/todos-shared.ts`。
+// The to-do list lives in `pi-web-todos.json` in the agent dir, beside pi's own
+// files (`mcp.json`, `settings.json`). It holds what the user typed, so unlike
+// the session index it is never rebuilt: writes are serialized in-process,
+// locked against other processes, replaced atomically, and a file that cannot
+// be read is set aside, never overwritten. The rules live in
+// `lib/todos-shared.ts`; this module is the disk.
 
 import { mkdirSync, renameSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -12,6 +15,7 @@ import { readRegularFileText } from "./regular-file";
 import {
   applyTodoRequest,
   emptyTodosState,
+  MAX_TODOS_FILE_BYTES,
   normalizeTodosState,
   TODOS_VERSION,
   type TodoDoneBy,
@@ -19,17 +23,17 @@ import {
   type TodosState,
 } from "./todos-shared";
 
-const MAX_BYTES = 4 * 1024 * 1024;
-// `__proto__` 永不复制：赋值它会改掉对象原型而不是加一个字段。
+// `__proto__` is never copied: assigning it would set the object's prototype instead.
 const KNOWN_KEYS = new Set(["version", "revision", "todos", "__proto__"]);
 
-// 路由处理器分别打包，热更新会重新求值模块；globalThis 保证每个进程只有一条队列。
+// Route handlers are bundled separately and hot reload re-evaluates modules; globalThis keeps one queue per process.
 const QUEUE_KEY: symbol = Symbol.for("pi-web:todos-write-queue");
 
 /**
- * 与 `mcp.json`、会话界面状态相同：写入在取锁前已排队，锁只可能被另一个进程
- * 短暂持有。被破坏的锁只记日志，不抛出——proper-lockfile 默认从定时器抛错，
- * 那会让整个服务停下来。
+ * About three seconds of retries in all, as for `mcp.json` and the session UI
+ * state: writes are serialized before the lock, so only another process holds
+ * it, and only for one short write. A compromised lock is logged: proper-lockfile's
+ * default throws from a timer, which would take the whole server down.
  */
 const LOCK_OPTIONS = {
   realpath: false,
@@ -40,7 +44,7 @@ const LOCK_OPTIONS = {
   },
 };
 
-/** 另一个进程持锁超过了重试等待的时间。 */
+/** Another process held the file's lock for longer than the retries wait. */
 export class TodosLockedError extends Error {
   constructor(message = "Another process holds the todos lock") {
     super(message);
@@ -48,8 +52,19 @@ export class TodosLockedError extends Error {
   }
 }
 
+interface CachedRead {
+  mtimeMs: number;
+  size: number;
+  ino: number;
+  state: TodosState;
+  /** Unknown top-level fields of the file, kept for a newer build when this one writes. */
+  extras: Record<string, unknown>;
+}
+
 interface TodosCache {
-  /** 每个路径见过的最高 revision，文件被移走后 revision 仍向前走。 */
+  /** The last read per path, valid while the file's stat fingerprint matches. */
+  reads: Map<string, CachedRead>;
+  /** The highest revision seen per path, so a reset after a corrupt or removed file still moves forward. */
   revisions: Map<string, number>;
 }
 
@@ -58,7 +73,7 @@ declare global {
 }
 
 function cache(): TodosCache {
-  return (globalThis.__piWebTodosCache ??= { revisions: new Map() });
+  return (globalThis.__piWebTodosCache ??= { reads: new Map(), revisions: new Map() });
 }
 
 function noteRevision(path: string, revision: number): void {
@@ -87,7 +102,73 @@ function parseStateText(text: string): Parsed {
   return state ? { ok: true, state, raw: raw as Record<string, unknown> } : { ok: false };
 }
 
-/** 从不抛出的读：缺失或损坏都算空（读绝不改写文件）。 */
+/**
+ * What the file holds, without ever throwing on its contents:
+ * `missing` when nothing is there, `unreadable` when it is not a regular file,
+ * is past `MAX_TODOS_FILE_BYTES`, or cannot be opened, and `corrupt` when the
+ * bytes are not this build's state.
+ */
+type Loaded =
+  | { kind: "missing" }
+  | { kind: "unreadable"; message: string }
+  | { kind: "corrupt" }
+  | { kind: "state"; state: TodosState; raw: Record<string, unknown> };
+
+/** Callers get their own copy: the cached state is shared by every later read. */
+function copyState(state: TodosState): TodosState {
+  return structuredClone(state);
+}
+
+/**
+ * The file's contents through the stat-keyed cache, so a poll costs one stat
+ * while nothing changed. A file too large or not a regular file is
+ * `unreadable`, not a thrown error: the caller decides whether that means an
+ * empty read or a file to set aside.
+ */
+function loadTodos(path: string): Loaded {
+  let stats;
+  try {
+    stats = statSync(path);
+  } catch (error) {
+    const code = errorCode(error);
+    if (code === "ENOENT" || code === "ENOTDIR") {
+      cache().reads.delete(path);
+      return { kind: "missing" };
+    }
+    return { kind: "unreadable", message: error instanceof Error ? error.message : String(error) };
+  }
+  const cached = cache().reads.get(path);
+  // An atomic replace gives the file a new inode, so a write within the mtime's granularity is still seen.
+  if (cached && cached.mtimeMs === stats.mtimeMs && cached.size === stats.size && cached.ino === stats.ino) {
+    return { kind: "state", state: copyState(cached.state), raw: { ...cached.extras } };
+  }
+  let text: string | undefined;
+  try {
+    // Read after the stat: a write in between leaves a fingerprint older than the text, which only costs one more read.
+    text = readRegularFileText(path, MAX_TODOS_FILE_BYTES);
+  } catch (error) {
+    cache().reads.delete(path);
+    return { kind: "unreadable", message: error instanceof Error ? error.message : String(error) };
+  }
+  if (text === undefined) {
+    cache().reads.delete(path);
+    return { kind: "missing" };
+  }
+  const parsed = parseStateText(text);
+  if (!parsed.ok) {
+    cache().reads.delete(path);
+    return { kind: "corrupt" };
+  }
+  noteRevision(path, parsed.state.revision);
+  const extras: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parsed.raw)) {
+    if (!KNOWN_KEYS.has(key)) extras[key] = value;
+  }
+  cache().reads.set(path, { mtimeMs: stats.mtimeMs, size: stats.size, ino: stats.ino, state: copyState(parsed.state), extras });
+  return { kind: "state", state: parsed.state, raw: extras };
+}
+
+/** Never throws; missing, corrupt or unreadable all read as empty (a read never rewrites the file). */
 export function readTodos(path?: string): TodosState {
   let target: string;
   try {
@@ -96,31 +177,29 @@ export function readTodos(path?: string): TodosState {
     console.warn(`[pi-web] could not locate the todos file: ${error instanceof Error ? error.message : String(error)}`);
     return emptyTodosState();
   }
-  let text: string | undefined;
-  try {
-    text = readRegularFileText(target, MAX_BYTES);
-  } catch (error) {
-    console.warn(`[pi-web] could not read the todos file: ${error instanceof Error ? error.message : String(error)}`);
-    return emptyTodosState();
+  const loaded = loadTodos(target);
+  switch (loaded.kind) {
+    case "state":
+      return loaded.state;
+    case "unreadable":
+      console.warn(`[pi-web] ${target} cannot be read as todos state: ${loaded.message}`);
+      return emptyTodosState();
+    case "corrupt":
+      console.warn(`[pi-web] ${target} is not valid todos state; reading it as empty until the next change sets it aside`);
+      return emptyTodosState();
+    default:
+      return emptyTodosState();
   }
-  if (text === undefined) return emptyTodosState();
-  const parsed = parseStateText(text);
-  if (parsed.ok) {
-    noteRevision(target, parsed.state.revision);
-    return parsed.state;
-  }
-  console.warn(`[pi-web] ${target} is not valid todos state; reading it as empty until the next change sets it aside`);
-  return emptyTodosState();
 }
 
-/** 把读不出来的文件挪到旁边；尽力而为。 */
-function backUpCorruptFile(path: string): void {
+/** Sets a file the store cannot read aside beside itself; best effort. */
+function backUpUnreadableFile(path: string, reason: string): void {
   const backup = `${path}.corrupt-${Date.now()}`;
   try {
     renameSync(path, backup);
-    console.warn(`[pi-web] ${path} could not be parsed; moved it to ${backup} and started from an empty todos list`);
+    console.warn(`[pi-web] ${path} ${reason}; moved it to ${backup} and started from an empty todos list`);
   } catch (error) {
-    console.warn(`[pi-web] ${path} could not be parsed and could not be moved aside (${error instanceof Error ? error.message : String(error)}); starting from an empty todos list`);
+    console.warn(`[pi-web] ${path} ${reason} and could not be moved aside (${error instanceof Error ? error.message : String(error)}); starting from an empty todos list`);
   }
 }
 
@@ -128,13 +207,14 @@ export interface UpdateTodosOptions {
   path?: string;
   now?: number;
   newId?: () => string;
-  /** `complete` 的署名：人点的是 "user"，agent 调工具的是 "agent"。 */
+  /** Who a `complete` is attributed to: "user" for a click, "agent" for the tool. */
   doneBy?: TodoDoneBy;
 }
 
 /**
- * 加锁读改写：真正改变了状态时 revision +1 并原子替换文件，没改变就不写。
- * 有效文件里不认识的顶层字段（`extras`）原样留给更新的版本。
+ * Locks, reads, applies `request`, and replaces the file when it changed
+ * something, with the revision bumped. Unknown top-level fields of a valid file
+ * are kept for a newer build.
  */
 export function updateTodos(request: TodoRequest, options: UpdateTodosOptions = {}): Promise<TodosState> {
   let target: string;
@@ -155,66 +235,85 @@ export function updateTodos(request: TodoRequest, options: UpdateTodosOptions = 
     }
     try {
       const lastRevision = cache().revisions.get(target) ?? 0;
-      const text = readRegularFileText(target, MAX_BYTES);
+      const loaded = loadTodos(target);
       let state: TodosState;
       const extras: Record<string, unknown> = {};
       let reset = false;
-      if (text === undefined) {
-        // 文件被删掉了就从空开始，但 revision 继续向前，客户端才看得见。
+      if (loaded.kind === "state") {
+        state = loaded.state;
+        for (const [key, value] of Object.entries(loaded.raw)) {
+          if (!KNOWN_KEYS.has(key)) extras[key] = value;
+        }
+      } else if (loaded.kind === "missing") {
+        // A removed file starts over, but its revision keeps counting so clients notice.
         state = { ...emptyTodosState(), revision: lastRevision };
       } else {
-        const parsed = parseStateText(text);
-        if (parsed.ok) {
-          state = parsed.state;
-          for (const [key, value] of Object.entries(parsed.raw)) {
-            if (!KNOWN_KEYS.has(key)) extras[key] = value;
-          }
-        } else {
-          backUpCorruptFile(target);
-          state = { ...emptyTodosState(), revision: lastRevision + 1 };
-          // 文件已经挪走：即使这次请求本身什么都没改，也要写回一份干净的空状态。
-          reset = true;
-        }
+        // Corrupt, too large or not a regular file: it is not a state this build
+        // can use, so it is set aside and the list starts empty rather than every
+        // write being refused for good.
+        backUpUnreadableFile(target, loaded.kind === "corrupt" ? "could not be parsed" : `cannot be read (${loaded.message})`);
+        cache().reads.delete(target);
+        state = { ...emptyTodosState(), revision: lastRevision + 1 };
+        // The file was moved away: write the fresh state even when the edit itself changes nothing.
+        reset = true;
       }
       const next = applyTodoRequest(state, request, {
         now,
         ...(options.newId ? { newId: options.newId } : {}),
         ...(options.doneBy ? { doneBy: options.doneBy } : {}),
       });
-      // `applyTodoRequest` 没改变时返回同一个对象：这是「不写」的唯一判据。
+      // `applyTodoRequest` returns the state itself when nothing changed: that identity is the only "do not write" signal.
       const changed = next !== state;
       if (!changed && !reset) return state;
-      const document = {
+      const result: TodosState = {
         version: TODOS_VERSION,
         revision: state.revision + (changed ? 1 : 0),
         todos: next.todos,
+      };
+      const document = {
+        version: result.version,
+        revision: result.revision,
+        todos: result.todos,
         ...extras,
       };
       writePrivateFileAtomicSync(target, JSON.stringify(document, null, 2) + "\n");
-      noteRevision(target, document.revision);
-      return { version: TODOS_VERSION, revision: document.revision, todos: next.todos };
+      noteRevision(target, result.revision);
+      try {
+        const stats = statSync(target);
+        cache().reads.set(target, { mtimeMs: stats.mtimeMs, size: stats.size, ino: stats.ino, state: copyState(result), extras });
+      } catch {
+        cache().reads.delete(target);
+      }
+      return copyState(result);
     } finally {
       try {
         await release();
       } catch {
-        // 被破坏的锁已经通过 onCompromised 记录过了。
+        // A compromised lock was already reported through onCompromised.
       }
     }
   });
 }
 
-/** 给 `GET` 用的便宜读：文件不在就是 0，其他意外错误为 null。 */
+/**
+ * Cheap enough for the running poll: one stat while the file is unchanged. 0
+ * when there is no file, null when one is there but cannot be read (so a caller
+ * can tell "nothing yet" from "something is wrong").
+ */
 export function getTodosRevision(path?: string): number | null {
   try {
     const target = path ?? getTodosPath();
-    try {
-      statSync(target);
-    } catch (error) {
-      const code = errorCode(error);
-      if (code === "ENOENT" || code === "ENOTDIR") return 0;
-      return null;
+    const loaded = loadTodos(target);
+    switch (loaded.kind) {
+      case "state":
+        return loaded.state.revision;
+      case "missing":
+        return 0;
+      case "corrupt":
+        return 0;
+      default:
+        return null;
     }
-    return readTodos(target).revision;
   } catch {
     return null;
   }
