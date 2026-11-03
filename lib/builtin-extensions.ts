@@ -13,6 +13,7 @@ import {
   type LoadedMcpConfig,
   type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
+import { createTodoCompleteExtension } from "./builtin-todo-extension";
 import { McpHost, type McpHostOptions } from "./mcp-host";
 import { createPiWebMcpTransportFactory } from "./mcp-transport";
 import { loadPiSdkInternals, type PiSdkInternals, type PiSdkInternalsResult } from "./pi-sdk-internals";
@@ -449,6 +450,12 @@ export async function createSubagentMcpExtensions(options: {
 
 export interface PiWebBuiltinExtensionsOptions {
   agentDir: string;
+  /**
+   * The to-do this session was started from. It registers `todo_complete` for
+   * this session alone (`lib/builtin-todo-extension.ts`); every other session
+   * never sees that tool.
+   */
+  todoId?: string;
   /** Timing overrides for tests. */
   mcpHost?: Pick<McpHostOptions, "idleMs" | "promptWaitMs">;
 }
@@ -471,7 +478,12 @@ export async function createPiWebBuiltinExtensions(
     ...(options.mcpHost ? { mcpHost: options.mcpHost } : {}),
   });
   return {
-    extensions: [builtin("codemode", sandbox.available ? createCodemodeExtension() : unavailableExtension), ...extensions],
+    extensions: [
+      builtin("codemode", sandbox.available ? createCodemodeExtension() : unavailableExtension),
+      ...extensions,
+      // Not a `builtin()`: that helper only names the CLI's own `-builtin:` switches.
+      ...(options.todoId ? [createTodoCompleteExtension({ todoId: options.todoId })] : []),
+    ],
     mcpHost,
   };
 }

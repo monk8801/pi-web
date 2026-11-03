@@ -268,6 +268,11 @@ export interface RpcSessionStartOptions {
   initialModel?: { provider: string; modelId: string };
   allowInitialModelFallback?: boolean;
   thinkingLevel?: ThinkingLevel;
+  /**
+   * The to-do a session is started from: that session, and only it, gets the
+   * `todo_complete` tool (`lib/builtin-todo-extension.ts`).
+   */
+  todoId?: string;
 }
 
 const CODING_TOOL_NAMES = ["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"];
@@ -2466,6 +2471,16 @@ declare global {
   var __piStartingSessionCwds: Map<string, number> | undefined;
 }
 
+/**
+ * The live wrapper for a session id, if one is open. `/api/agent/running` and the
+ * to-do start's "already running?" check both ask this rather than the registry
+ * directly, so a session that is closing counts as gone.
+ */
+export function getRunningWrapper(sessionId: string): AgentSessionWrapper | undefined {
+  const wrapper = getRegistry().get(sessionId);
+  return wrapper?.isAlive() ? wrapper : undefined;
+}
+
 function getRegistry(): Map<string, AgentSessionWrapper> {
   if (!globalThis.__piSessions) {
     globalThis.__piSessions = new Map();
@@ -3178,7 +3193,7 @@ export async function startRpcSession(
     // which MCP servers the session connects (ADR 0006).
     const builtins = subagentResources || chatOnly || sideChatTools
       ? undefined
-      : await createPiWebBuiltinExtensions({ agentDir });
+      : await createPiWebBuiltinExtensions({ agentDir, ...(options.todoId ? { todoId: options.todoId } : {}) });
     const subagentCodemode = subagentResources?.codemode
       ? await createSubagentCodemodeExtension({
           agentDir,

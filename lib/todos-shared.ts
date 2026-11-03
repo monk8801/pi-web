@@ -62,6 +62,11 @@ export interface TodoAddRequest { action: "add"; title: string; note?: string; p
 export interface TodoUpdateRequest { action: "update"; id: string; title?: string; note?: string | null; project?: string }
 export interface TodoIdRequest { action: "complete" | "reopen" | "delete"; id: string }
 /**
+ * Opening the todo in a session. The route runs it (`lib/todos-start.ts`); the
+ * pure applier has nothing to change for it, so it answers the state unchanged.
+ */
+export interface TodoStartRequest { action: "start"; id: string }
+/**
  * The server fills in the session id after `start`; no client sends it, so
  * `parseTodoRequest` never produces one (`lib/todos-start.ts` builds it).
  */
@@ -70,6 +75,7 @@ export type TodoRequest =
   | TodoAddRequest
   | TodoUpdateRequest
   | TodoIdRequest
+  | TodoStartRequest
   | TodoAttachRequest;
 
 export type TodoRequestParse =
@@ -229,7 +235,7 @@ export function parseTodoRequest(raw: unknown): TodoRequestParse {
     if (project !== undefined) request.project = project;
     return { ok: true, request };
   }
-  if (action === "complete" || action === "reopen" || action === "delete") {
+  if (action === "complete" || action === "reopen" || action === "delete" || action === "start") {
     const id = parseId(body.id);
     if (!id.ok) return id;
     return { ok: true, request: { action, id: id.id } };
@@ -251,6 +257,8 @@ export function applyTodoRequest(
   // A caller's clock is stored the way the file keeps it: a time the next read
   // would drop would otherwise be a change that leaves nothing behind.
   const now = timestamp(context.now) ?? 0;
+  // Starting a session is the route's work; nothing about the list changes here.
+  if (request.action === "start") return state;
   if (request.action === "add") {
     if (state.todos.length >= MAX_TODOS) return state;
     // The same rules as `validTodo`, so what is stored here is what the next
