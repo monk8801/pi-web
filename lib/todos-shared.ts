@@ -12,10 +12,11 @@ export const MAX_PROJECT_LENGTH = 4096;
 /**
  * Most bytes a `pi-web-todos.json` may take. Derived from the caps above rather
  * than picked: a full list's worst-case JSON is every entry's note, title and
- * project, and a CJK character costs three bytes. A file past this is not one
- * this build wrote, so the store sets it aside instead of refusing every write.
+ * project, and one character costs up to six bytes there (a control character
+ * is escaped as `\u0001`). A file past this is not one this build wrote, so the
+ * store sets it aside instead of refusing every write.
  */
-export const MAX_TODOS_FILE_BYTES = MAX_TODOS * (MAX_TODO_NOTE_LENGTH + MAX_TODO_TITLE_LENGTH + MAX_PROJECT_LENGTH) * 4 + 64 * 1024;
+export const MAX_TODOS_FILE_BYTES = MAX_TODOS * (MAX_TODO_NOTE_LENGTH + MAX_TODO_TITLE_LENGTH + MAX_PROJECT_LENGTH) * 6 + 64 * 1024;
 /** Most characters a session id may have; a real one is a UUID. */
 const MAX_SESSION_ID_LENGTH = 200;
 /** Eight hex characters, the style of `session-ui-state.json`'s keys. */

@@ -296,9 +296,11 @@ export function updateTodos(request: TodoRequest, options: UpdateTodosOptions = 
 }
 
 /**
- * Cheap enough for the running poll: one stat while the file is unchanged. 0
- * when there is no file, null when one is there but cannot be read (so a caller
- * can tell "nothing yet" from "something is wrong").
+ * Cheap enough for the running poll: one stat while the file is unchanged.
+ * 0 when there is no file, and 0 for a file whose bytes this build cannot parse
+ * (what `readTodos` reads as an empty list); null when a file is there but
+ * cannot be opened or read at all, so a caller can tell "nothing yet" from
+ * "something is wrong".
  */
 export function getTodosRevision(path?: string): number | null {
   try {
