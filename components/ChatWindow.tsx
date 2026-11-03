@@ -996,6 +996,8 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
       onSoundToggle={onSoundToggle}
       onAudioUnlock={unlockAudio}
       draftKey={session?.id ?? newSessionDraftKey ?? undefined}
+      // Sits in the composer's control row, right of the model selector.
+      runContext={<RunContextChip session={session} />}
       cwd={session?.cwd ?? newSessionCwd}
       onAttachFiles={onAttachFiles}
     />
@@ -1512,11 +1514,6 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
           </div>
         )}
         {chatInputElement}
-        {/* The composer's own insets (`ChatInput`'s shell: 16px, 52px on a desktop
-            for the minimap), so the branch sits on the input's left edge. */}
-        <div style={{ padding: "0 16px", paddingRight: isMobile ? 16 : 52 }}>
-          <RunContextChip session={session} />
-        </div>
         <ExtensionStatusBar
           statuses={extensionStatuses}
           widgets={extensionWidgets}

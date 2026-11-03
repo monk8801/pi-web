@@ -2895,21 +2895,22 @@ span.token.table {
 }
 
 /* Which branch the shown session runs on (components/RunContextChip.tsx): one
-   quiet line under the composer, in pi's TUI footer's spirit. The composer's own
-   side padding, so it sits on the input's left edge; dim, one step smaller than
-   the input's text, and never wider than the composer (a long branch is cut at
-   its left, where it differs least, as the sidebar's rows do). */
+   quiet item in the composer's control row, right of the model selector, in
+   pi's TUI footer's spirit. Dim and a step smaller than the controls' labels, and
+   never wider than 140px, so it costs the model name nothing (a long branch is
+   cut at its left, where it differs least, as the sidebar's rows do). */
 .run-context {
   display: flex;
+  /* In the control row, right of the model selector: it never takes room the
+     model name needs, and a long branch is cut (at its left) rather than wrap. */
+  flex: none;
   align-items: center;
   gap: 4px;
-  width: fit-content;
-  max-width: 60%;
-  margin-top: 2px;
+  max-width: 140px;
   overflow: hidden;
   color: var(--text-dim);
   font-size: 11px;
-  line-height: 1.4;
+  line-height: 1;
   user-select: none;
 }
 

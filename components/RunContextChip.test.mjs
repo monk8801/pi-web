@@ -9,6 +9,8 @@ const { renderToStaticMarkup } = await jiti.import("react-dom/server");
 const { I18nProvider } = await jiti.import("@/hooks/useI18n");
 const { RunContextChip } = await jiti.import("./RunContextChip.tsx");
 const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+const chatInput = await readFile(new URL("./ChatInput.tsx", import.meta.url), "utf8");
+const chatWindow = await readFile(new URL("./ChatWindow.tsx", import.meta.url), "utf8");
 
 const h = React.createElement;
 
@@ -55,11 +57,22 @@ test("a linked worktree is told apart by its icon's accent, not by a second labe
   assert.match(worktreeIcon, /color: var\(--accent\)/);
 });
 
-test("a long branch is cut at its left, inside the composer's width", () => {
+test("it lives in the composer's control row, right of the model selector", () => {
+  // A slot, so ChatInput stays git-agnostic; ChatWindow fills it with the chip.
+  assert.match(chatInput, /runContext\?: ReactNode;/);
+  const leftGroup = chatInput.slice(chatInput.indexOf("{/* Model selector"), chatInput.indexOf("{/* spacer */}"));
+  assert.match(leftGroup, /\{runContext\}/);
+  assert.match(chatWindow, /runContext=\{<RunContextChip session=\{session\} \/>\}/);
+  // No second copy below the composer.
+  assert.doesNotMatch(chatWindow, /<div style=\{\{ padding: "0 16px", paddingRight: isMobile \? 16 : 52 \}\}>\s*<RunContextChip/);
+});
+
+test("a long branch is cut at its left, inside its 140px of the control row", () => {
   const rule = css.slice(css.indexOf(".run-context-branch"), css.indexOf("}", css.indexOf(".run-context-branch")) + 1);
   assert.match(rule, /text-overflow: ellipsis/);
   assert.match(rule, /direction: rtl/);
   const chip = css.slice(css.indexOf(".run-context {"), css.indexOf(".run-context-icon {"));
-  assert.match(chip, /max-width: 60%/);
+  assert.match(chip, /flex: none/);
+  assert.match(chip, /max-width: 140px/);
   assert.match(chip, /color: var\(--text-dim\)/);
 });

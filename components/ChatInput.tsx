@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useRef, useState, useCallback, useEffect, useLayoutEffect, useImperativeHandle, forwardRef, KeyboardEvent } from "react";
+import React, { memo, useRef, useState, useCallback, useEffect, useLayoutEffect, useImperativeHandle, forwardRef, KeyboardEvent, type ReactNode } from "react";
 import type { BuiltinSlashCommandResult, CompactResultInfo, QueuedMessages, SlashCommandInfo } from "@/hooks/useAgentSession";
 import type { SkillsResponse } from "@/lib/api-types";
 import type { TextContent, UserMessage } from "@/lib/types";
@@ -105,6 +105,13 @@ interface Props {
   cwd?: string | null;
   /** Files picked with the attach button, handled like files dropped onto the chat. Without it the button takes images only. */
   onAttachFiles?: (files: File[]) => void;
+  /**
+   * A quiet fact about this run, shown right of the model selector
+   * (`components/RunContextChip.tsx` puts the session's git branch there). A slot
+   * rather than fields, so this component stays git-agnostic; absent in a
+   * `compact` composer, which has no control row.
+   */
+  runContext?: ReactNode;
 }
 
 export interface ChatInputHandle {
@@ -700,6 +707,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
   draftKey,
   cwd,
   onAttachFiles,
+  runContext,
   compact = false,
 }: Props, ref) {
   const { t } = useI18n();
@@ -2538,6 +2546,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                 onSetDefault={onSetDefaultModel}
               />
             )}
+            {runContext}
           </div>
 
           {/* spacer */}
