@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { after } from "node:test";
@@ -101,4 +101,35 @@ test("a session id cannot be set from a request body", async () => {
   assert.equal(attach.status, 400);
   const read = await (await GET()).json();
   assert.equal(read.todos.find((todo) => todo.id === id).sessionId, undefined);
+});
+
+test("a start whose project is gone answers cwd-missing with the folder", async () => {
+  const added = await (await POST(post({ action: "add", title: "T", project: "/definitely/missing/folder" }))).json();
+  const id = added.todos.at(-1).id;
+  const response = await POST(post({ action: "start", id }));
+  assert.equal(response.status, 400);
+  const body = await response.json();
+  assert.equal(body.reason, "cwd-missing");
+  assert.equal(body.cwd, "/definitely/missing/folder");
+});
+
+test("a request from a foreign origin is refused before anything is read", async () => {
+  const response = await POST(new Request("http://localhost/api/todos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Host: "localhost", Origin: "http://evil.example" },
+    body: JSON.stringify({ action: "add", title: "T", project: "/p" }),
+  }));
+  assert.equal(response.status, 403);
+  assert.equal((await response.json()).reason, "request-denied");
+});
+
+test("a locked file answers 409, not 500", async (t) => {
+  const added = await (await POST(post({ action: "add", title: "T", project: "/p" }))).json();
+  const id = added.todos.at(-1).id;
+  const lock = `${path()}.lock`;
+  await mkdir(lock, { recursive: true });
+  t.after(() => rm(lock, { recursive: true, force: true }));
+  const response = await POST(post({ action: "complete", id }));
+  assert.equal(response.status, 409);
+  assert.equal((await response.json()).reason, "locked");
 });

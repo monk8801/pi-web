@@ -15,8 +15,8 @@ export const dynamic = "force-dynamic";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
-function refusal(status: number, reason: string, error: string) {
-  return NextResponse.json({ error, reason }, { status, headers: NO_STORE });
+function refusal(status: number, reason: string, error: string, cwd?: string) {
+  return NextResponse.json({ error, reason, ...(cwd ? { cwd } : {}) }, { status, headers: NO_STORE });
 }
 
 // GET /api/todos
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   try {
     if (request.action === "start") {
       const result = await startTodo(request.id);
-      if (!result.ok) return refusal(result.status, result.reason, result.error);
+      if (!result.ok) return refusal(result.status, result.reason, result.error, result.cwd);
       return NextResponse.json(
         { todos: result.state.todos, revision: result.state.revision, sessionId: result.sessionId },
         { headers: NO_STORE },

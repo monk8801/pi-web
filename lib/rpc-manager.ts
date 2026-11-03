@@ -2472,13 +2472,13 @@ declare global {
 }
 
 /**
- * The live wrapper for a session id, if one is open. `/api/agent/running` and the
- * to-do start's "already running?" check both ask this rather than the registry
- * directly, so a session that is closing counts as gone.
+ * Is that session running right now? The same predicate `/api/agent/running`
+ * reports (`getRunningRpcSessionIds`), so "running" means one thing in this
+ * process: an open but idle wrapper is NOT running, and a to-do whose session
+ * merely sits open is waiting for a person, not running.
  */
-export function getRunningWrapper(sessionId: string): AgentSessionWrapper | undefined {
-  const wrapper = getRegistry().get(sessionId);
-  return wrapper?.isAlive() ? wrapper : undefined;
+export function isRpcSessionRunning(sessionId: string): boolean {
+  return getRegistry().get(sessionId)?.isRunning() === true;
 }
 
 function getRegistry(): Map<string, AgentSessionWrapper> {

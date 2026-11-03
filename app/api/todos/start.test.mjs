@@ -51,6 +51,8 @@ test("a project folder that is gone is refused before a session is created", asy
   const result = await startTodo(added.todos[0].id);
   assert.equal(result.ok, false);
   assert.equal(result.reason, "cwd-missing");
+  // The body the rest of the app reads a missing folder from (`lib/missing-cwd.ts`).
+  assert.equal(result.cwd, cwd);
   assert.equal(started, 0);
 });
 
@@ -94,6 +96,45 @@ test("a session that is still running is opened instead of started again", async
   assert.equal(result.ok, true);
   assert.equal(result.sessionId, "s-open");
   assert.equal(started, 0);
+});
+
+test("a session that is open but idle starts a new run: open is not running", async (t) => {
+  const cwd = await project(t);
+  const added = await updateTodos({ action: "add", title: "T", project: cwd });
+  const id = added.todos.at(-1).id;
+  await updateTodos({ action: "attach", id, sessionId: "s-idle" });
+  let started = 0;
+  const startTodo = createStartTodo({
+    exists: () => true,
+    // What production asks: isRpcSessionRunning() (isRunning on the wrapper), not isAlive.
+    isRunning: () => false,
+    startSession: async () => { started += 1; return { sessionId: "s-run" }; },
+  });
+  const result = await startTodo(id);
+  assert.equal(result.ok, true);
+  assert.equal(result.sessionId, "s-run");
+  assert.equal(started, 1);
+});
+
+test("two clicks at once start one session, not two", async (t) => {
+  const cwd = await project(t);
+  const added = await updateTodos({ action: "add", title: "T", project: cwd });
+  const id = added.todos.at(-1).id;
+  // What a real wrapper does: a session it created is running until it ends.
+  const live = new Set();
+  let started = 0;
+  const startTodo = createStartTodo({
+    exists: () => true,
+    isRunning: (sessionId) => live.has(sessionId),
+    startSession: async () => {
+      started += 1;
+      const sessionId = `s-${started}`;
+      live.add(sessionId);
+      return { sessionId };
+    },
+  });
+  await Promise.all([startTodo(id), startTodo(id)]);
+  assert.equal(started, 1);
 });
 
 test("a session that already ended is replaced by a new run", async (t) => {

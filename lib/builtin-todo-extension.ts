@@ -35,7 +35,7 @@ export function createTodoCompleteExtension(options: TodoCompleteExtensionOption
         name: TODO_COMPLETE_TOOL_NAME,
         label: "Complete todo",
         description: "Mark the to-do this session was started from as done. Call it once, after the work is finished and verified. It takes no arguments.",
-        parameters: Type.Object({}),
+        parameters: Type.Object({}, { additionalProperties: false }),
         async execute(): Promise<AgentToolResult<TodoCompleteDetails>> {
           const path = options.path ?? getTodosPath();
           const known = readTodos(path).todos.find((todo) => todo.id === options.todoId);
@@ -53,11 +53,21 @@ export function createTodoCompleteExtension(options: TodoCompleteExtensionOption
               details: { todoId: known.id },
             };
           }
-          const state = await updateTodos({ action: "complete", id: options.todoId }, { path, doneBy: "agent" });
-          return {
-            content: [{ type: "text" as const, text: `Todo done: ${known.title}` }],
-            details: { todoId: known.id, revision: state.revision },
-          };
+          try {
+            const state = await updateTodos({ action: "complete", id: options.todoId }, { path, doneBy: "agent" });
+            return {
+              content: [{ type: "text" as const, text: `Todo done: ${known.title}` }],
+              details: { todoId: known.id, revision: state.revision },
+            };
+          } catch (error) {
+            // Another process holds the file: a tool result the model can report,
+            // not a crash in the middle of a run.
+            return {
+              content: [{ type: "text" as const, text: `Could not mark the todo done: ${error instanceof Error ? error.message : String(error)}` }],
+              details: { todoId: known.id },
+              isError: true,
+            };
+          }
         },
       }));
     },
