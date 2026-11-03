@@ -8,7 +8,7 @@
 
 import { todoDisplayStatus, type Todo, type TodoDisplayStatus } from "@/lib/todos-shared";
 
-export type TodoMenuCommand = "run" | "move" | "done" | "reopen" | "delete";
+export type TodoMenuCommand = "run" | "edit" | "move" | "done" | "reopen" | "delete";
 
 /** `disabledReason` is a translation key when it is one of the `todos.*` keys. */
 export interface TodoMenuEntry {
@@ -21,10 +21,11 @@ export interface TodoMenuEntry {
  * first, then moving it, then the destructive one alone at the end.
  */
 export function todoMenuItems(display: TodoDisplayStatus): TodoMenuEntry[] {
+  // A finished to-do is a record: it cannot be edited or moved, only reopened
+  // (which makes it editable again) or deleted.
   if (display === "done") {
     return [
       { command: "reopen", disabled: false },
-      { command: "move", disabled: false },
       { command: "delete", disabled: false },
     ];
   }
@@ -33,6 +34,7 @@ export function todoMenuItems(display: TodoDisplayStatus): TodoMenuEntry[] {
     { command: "run", disabled: display === "running" },
     // Only a run that ended without saying so needs a person's confirmation.
     ...(display === "confirm" ? [{ command: "done" as const, disabled: false }] : []),
+    { command: "edit", disabled: false },
     { command: "move", disabled: false },
     { command: "delete", disabled: false },
   ];

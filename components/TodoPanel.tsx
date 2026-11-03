@@ -9,7 +9,7 @@
 // and "waiting for your confirmation" all come from the to-do plus the ids the
 // running poll reports, so a stale write can never leave a wrong row behind.
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import type { TodoAction } from "@/hooks/useTodos";
@@ -61,8 +61,8 @@ interface MenuState {
   display: TodoDisplayStatus;
   x: number;
   y: number;
-  /** "projects" swaps the body for the projects a to-do can move to. */
-  mode: "actions" | "projects";
+  /** "projects" and "edit" swap the body; only "actions" is the item list. */
+  mode: "actions" | "projects" | "edit";
 }
 
 interface Props {
@@ -97,6 +97,10 @@ export function TodoPanel({
   const isMobile = useIsMobile();
   const [draft, setDraft] = useState("");
   const [menu, setMenu] = useState<MenuState | null>(null);
+  // The edit form's fields; filled when the menu swaps to it.
+  const [edit, setEdit] = useState<{ title: string; note: string } | null>(null);
+  const editTitleId = useId();
+  const editNoteId = useId();
   const groups = useMemo(() => groupTodos(todos, runningSessionIds, projectNames), [todos, runningSessionIds, projectNames]);
 
   const add = async () => {
@@ -132,8 +136,12 @@ export function TodoPanel({
     if (!target) return;
     const { todo } = target;
     if (kind === "run") return void start();
+    if (kind === "edit") {
+      setEdit({ title: todo.title, note: todo.note ?? "" });
+      setMenu({ ...target, mode: "edit" });
+      return;
+    }
     if (kind === "move") {
-      // The menu stays open with its body swapped for the project list.
       setMenu({ ...target, mode: "projects" });
       return;
     }
@@ -141,6 +149,18 @@ export function TodoPanel({
     if (kind === "done") return void run({ kind: "complete", id: todo.id });
     if (kind === "reopen") return void run({ kind: "reopen", id: todo.id });
     return void run({ kind: "delete", id: todo.id });
+  };
+
+  /** Save the edit form: a blank title changes nothing, an empty note clears it. */
+  const saveEdit = async () => {
+    const target = menu;
+    const fields = edit;
+    if (target === null || fields === null) return;
+    const title = fields.title.trim();
+    if (title.length === 0) return;
+    setMenu(null);
+    const note = fields.note.trim();
+    await run({ kind: "update", id: target.todo.id, title, note: note.length === 0 ? null : note });
   };
 
   // Not memoised: a handful of entries, rebuilt from the open menu's state.
@@ -171,7 +191,11 @@ export function TodoPanel({
       label: t(menuLabelKey(entry.command)),
       ...(entry.command === "delete" ? { danger: true } : {}),
       ...(entry.command === "run" && entry.disabled ? { disabled: true, disabledReason: t("todos.alreadyRunning") } : {}),
-      onSelect: () => command(entry.command),
+      // Moving and editing swap the menu's body: the menu must stay open for it.
+      onSelect: (event) => {
+        if (entry.command === "move" || entry.command === "edit") event.keepOpen();
+        command(entry.command);
+      },
     }));
   };
   const items = menuItems();
@@ -207,24 +231,12 @@ export function TodoPanel({
               data-project={group.project}
               data-state={display}
               title={todo.note ?? todo.title}
-              // The row opens its menu (never a run), so it is reachable and
-              // named as a menu button; a done row takes no focus.
-              {...(display === "done" ? {} : { role: "button", tabIndex: 0, "aria-haspopup": "menu" })}
-              onClick={(event) => {
-                const rect = event.currentTarget.getBoundingClientRect();
-                openMenu(todo, display, { x: rect.left + 24, y: rect.bottom });
-              }}
+              // Only two ways in, both deliberate: a right-click anywhere on the
+              // row, or its ⋯ button (which the keyboard reaches). A plain click
+              // on the row does nothing.
               onContextMenu={(event) => {
                 event.preventDefault();
                 openMenu(todo, display, { x: event.clientX, y: event.clientY });
-              }}
-              onKeyDown={(event) => {
-                if (display === "done" || event.target !== event.currentTarget) return;
-                if (event.key !== "Enter" && event.key !== " ") return;
-                // Space on a focused row must not scroll the panel.
-                event.preventDefault();
-                const rect = event.currentTarget.getBoundingClientRect();
-                openMenu(todo, display, { x: rect.left + 24, y: rect.bottom });
               }}
             >
               <span className="todo-row-state" aria-hidden="true" />
@@ -268,7 +280,7 @@ export function TodoPanel({
         sheet={isMobile}
         ariaLabel={menu ? menu.todo.title : t("todos.rowMenu")}
         title={menu?.todo.title}
-        items={items}
+        items={menu?.mode === "edit" ? undefined : items}
         filter={menu?.mode === "projects"
           ? { placeholder: t("todos.filterProjects"), emptyLabel: t("todos.noProjects") }
           : undefined}
@@ -276,7 +288,46 @@ export function TodoPanel({
         cancelLabel={t("todos.cancel")}
         focusKey={menu?.mode}
         onClose={() => setMenu(null)}
-      />
+      >
+        {menu?.mode === "edit" && edit !== null ? (
+          // The same shape as the worktree form (components/WorktreeCreateForm.tsx):
+          // an autofocused field, then the two buttons.
+          <div className="sidebar-worktree-form">
+            <div className="sidebar-menu-header">{t("todos.edit")}</div>
+            <label className="todo-edit-label" htmlFor={editTitleId}>{t("todos.editTitle")}</label>
+            <input
+              id={editTitleId}
+              className="sidebar-worktree-input"
+              data-sidebar-menu-autofocus=""
+              value={edit.title}
+              aria-label={t("todos.editTitle")}
+              onChange={(event) => setEdit({ ...edit, title: event.target.value })}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+                event.preventDefault();
+                void saveEdit();
+              }}
+            />
+            <label className="todo-edit-label" htmlFor={editNoteId}>{t("todos.editNote")}</label>
+            <textarea
+              id={editNoteId}
+              className="sidebar-worktree-input todo-edit-note"
+              value={edit.note}
+              rows={3}
+              aria-label={t("todos.editNote")}
+              onChange={(event) => setEdit({ ...edit, note: event.target.value })}
+            />
+            <div className="sidebar-worktree-form-buttons">
+              <button type="button" className="sidebar-worktree-create" disabled={edit.title.trim().length === 0} onClick={() => void saveEdit()}>
+                {t("todos.save")}
+              </button>
+              <button type="button" className="sidebar-worktree-cancel" onClick={() => setMenu(null)}>
+                {t("todos.cancel")}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </SidebarMenu>
     </div>
   );
 }
@@ -284,6 +335,7 @@ export function TodoPanel({
 function menuLabelKey(kind: TodoMenuCommand): string {
   switch (kind) {
     case "run": return "todos.run";
+    case "edit": return "todos.edit";
     case "move": return "todos.moveProject";
     case "done": return "todos.markDone";
     case "reopen": return "todos.reopen";

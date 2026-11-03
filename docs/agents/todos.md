@@ -92,23 +92,28 @@ turn is not a finished task.
 Rows group by project (`groupTodos()`, named by the project's display name when
 one exists), unfinished first, done at the bottom.
 
-**Nothing runs on a click.** A row opens a menu — right-click at the pointer, or
-a click/Enter/Space for touch and keyboard — and the menu's "Run" starts it: a
-plain click was one slip away from starting a pi session in the wrong project.
-The menu (`components/todo-menu.ts` decides its entries) offers, per state: Run
-(disabled while that run is live), "Mark done" for a waiting run, "Move to
-project…" (the sidebar's projects, the current one checked, applied as an
-`update` with the new `project`), Reopen for a finished one, and Delete alone at
-the end. A waiting row also keeps its inline "Done" button.
+**Nothing runs on a click.** Two ways in, both deliberate: a right-click
+anywhere on the row, or its ⋯ button (which the keyboard can reach). A plain
+click on the row does nothing at all — it used to start a pi session, one slip
+away from the wrong project.
 
-`hooks/useTodos.ts` holds the data: one action at a time, the server's answer is
-the truth (no optimistic merge — the list is small and every answer carries the
-revision the next poll agrees with).
+The menu (`components/todo-menu.ts` decides its entries) offers, per state:
 
-## Tests
+| state | entries |
+|---|---|
+| not started | Run · Edit · Move to project… · Delete |
+| waiting for a person | Run · Mark done · Edit · Move to project… · Delete |
+| running | Run (disabled) · Edit · Move to project… · Delete |
+| done | Reopen · Delete |
 
-`lib/todos-shared.test.mjs` (the pure rules), `lib/todos.test.mjs` (the store on
-a real temp dir, one per test), `app/api/todos/route.test.mjs`,
-`app/api/todos/start.test.mjs` (the injected caller), `lib/builtin-todo-extension.test.mjs`,
-`components/TodoPanel.test.mjs`, and `components/AppShell.todos.test.mjs` (the
-wiring, read from source).
+"A finished to-do is a record": it can be reopened (which makes it editable
+again) or deleted, never edited or moved in place.
+
+Edit swaps the menu's body for a small form (title and note, the worktree form's
+shape) and saves through an `update`; a blank title cannot be saved and an
+emptied note clears it (`note: null`). Move swaps the body for the sidebar's
+project list, the current one checked, and saves the chosen `project` through the
+same `update`. Both keep the menu open (`event.keepOpen()`), which is what made
+"Move to project…" do nothing at first: the menu closed on select before the
+swapped body could be seen. A waiting row keeps its inline "Done" button.
+

@@ -95,11 +95,13 @@ test("without a project to add to, the composer is disabled and says why", () =>
   assert.match(html, /Open a project first/);
 });
 
-test("a row is a button to the keyboard, and a done row is not", () => {
+test("a row has no click action: its ⋯ (and a right-click) opens the menu", () => {
   const open = render({ todos: [todo({})] });
-  assert.match(open, /data-state="open"[^>]*role="button" tabindex="0"/);
-  // The row's own buttons keep the keyboard to themselves.
+  // No role, no tabindex: a plain click on the row does nothing.
+  assert.doesNotMatch(open, /role="button"/);
+  assert.doesNotMatch(open, /tabindex="0"/);
   assert.match(open, /class="todo-row-more"/);
+  assert.match(open, /aria-haspopup="menu"/);
   const done = render({ todos: [todo({ status: "done", doneAt: now })] });
-  assert.doesNotMatch(done, /role="button" tabindex="0"/);
+  assert.match(done, /class="todo-row-more"/);
 });

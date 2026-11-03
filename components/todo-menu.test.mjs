@@ -7,20 +7,20 @@ const { todoMenuItems, todoProjectChoices } = await jiti.import("./todo-menu.ts"
 
 const commands = (display) => todoMenuItems(display).map((entry) => entry.command);
 
-test("an open to-do offers a run, moving it and deleting it — never a confirmation", () => {
-  assert.deepEqual(commands("open"), ["run", "move", "delete"]);
-  assert.deepEqual(todoMenuItems("open").map((entry) => entry.disabled), [false, false, false]);
+test("an open to-do offers a run, editing, moving and deleting — never a confirmation", () => {
+  assert.deepEqual(commands("open"), ["run", "edit", "move", "delete"]);
+  assert.deepEqual(todoMenuItems("open").map((entry) => entry.disabled), [false, false, false, false]);
 });
 
 test("a waiting to-do also offers marking it done, a running one cannot be run again", () => {
-  assert.deepEqual(commands("confirm"), ["run", "done", "move", "delete"]);
+  assert.deepEqual(commands("confirm"), ["run", "done", "edit", "move", "delete"]);
   const running = todoMenuItems("running");
-  assert.deepEqual(running.map((entry) => entry.command), ["run", "move", "delete"]);
+  assert.deepEqual(running.map((entry) => entry.command), ["run", "edit", "move", "delete"]);
   assert.equal(running[0].disabled, true, "a live run is not started twice");
 });
 
-test("a done to-do offers reopening, moving and deleting, and no run", () => {
-  assert.deepEqual(commands("done"), ["reopen", "move", "delete"]);
+test("a done to-do is a record: reopen or delete, never edit, move or run", () => {
+  assert.deepEqual(commands("done"), ["reopen", "delete"]);
 });
 
 test("the move list is the sidebar's projects, deduplicated, the current one marked", () => {
