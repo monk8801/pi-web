@@ -23,7 +23,10 @@ export interface TodoGroupModel { project: string; label: string; rows: TodoRowM
 /** Unfinished first (running, awaiting confirmation, open), done at the bottom, newest first within each. */
 const DISPLAY_ORDER: Record<TodoDisplayStatus, number> = { running: 0, confirm: 1, open: 2, done: 3 };
 
+/** Wide enough for a title and a line of actions; the edit form needs room for a long note. */
 const MENU_WIDTH = 200;
+const MENU_WIDTH_PROJECTS = 260;
+const MENU_WIDTH_EDIT = 460;
 
 function folderName(project: string): string {
   const parts = project.split(/[\\/]/).filter(Boolean);
@@ -284,7 +287,7 @@ export function TodoPanel({
         filter={menu?.mode === "projects"
           ? { placeholder: t("todos.filterProjects"), emptyLabel: t("todos.noProjects") }
           : undefined}
-        width={MENU_WIDTH}
+        width={menu?.mode === "edit" ? MENU_WIDTH_EDIT : menu?.mode === "projects" ? MENU_WIDTH_PROJECTS : MENU_WIDTH}
         cancelLabel={t("todos.cancel")}
         focusKey={menu?.mode}
         onClose={() => setMenu(null)}
@@ -313,7 +316,7 @@ export function TodoPanel({
               id={editNoteId}
               className="sidebar-worktree-input todo-edit-note"
               value={edit.note}
-              rows={3}
+              rows={8}
               aria-label={t("todos.editNote")}
               onChange={(event) => setEdit({ ...edit, note: event.target.value })}
             />

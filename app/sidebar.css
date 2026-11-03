@@ -1814,9 +1814,12 @@ a.session-tree-main {
 
 .todo-edit-note {
   height: auto;
-  min-height: 56px;
+  /* A note is often several lines: the field starts tall enough to read them and
+     can still be dragged bigger; the menu scrolls past its own max-height. */
+  min-height: 150px;
   padding: 6px 10px;
   resize: vertical;
   font: inherit;
   font-size: 12px;
+  line-height: 1.5;
 }
