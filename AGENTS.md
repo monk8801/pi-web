@@ -77,6 +77,7 @@ app/api/
   mcp/sign-in/[flowId]/route.ts    GET flow state (polled) | POST { redirectUrl } | DELETE cancel
   project-trust/route.ts           GET trust status + project .pi/mcp.json servers (files only) | POST trust, rebuild the cwd's wrappers
   tools/settings/route.ts          GET/PUT defaultTools switches: PowerShell (Windows), Code mode automatic/always; codemode.mode, codemode.inlineBudget
+  todos/route.ts                   GET the to-do list | POST one change: add, update, complete, reopen, delete, start
   cache-miss-notices/route.ts      GET/PUT pi's global showCacheMissNotices (Settings › General)
   models/route.ts                  GET ?cwd= { models, modelList, defaultModel, … }
   models/enabled/route.ts          GET/PUT enabledModels switches
@@ -128,6 +129,10 @@ lib/
   pi-types.ts               local structural types for pi SDK objects
   pi-sdk-internals.ts       loader for SDK modules the package does not export (MCP connection, config, OAuth)
   tool-presets.ts           PRESET_NONE/READ_ONLY/DEFAULT/FULL + getPresetFromTools()
+  todos-shared.ts           client-safe to-do types, request parsing, the four display states, the first prompt
+  todos.ts                  pi-web-todos.json: lock, atomic write, revision, corrupt/unreadable backup
+  todos-start.ts            start a to-do: serialise, reuse a running session, create one, record its id
+  builtin-todo-extension.ts todo_complete, registered only in the session a to-do started
   tool-preset-preference.ts browser-persisted default preset for fresh sessions
   tool-fields.ts            a tool call's arguments as flat rows: all of them or no table
   builtin-extensions.ts     codemode / tool-search / mcp built-ins, sandbox self-test, -builtin: switches
@@ -208,6 +213,7 @@ components/
   WorktreeCreateForm.tsx   "New worktree…" form, a SidebarMenu body
   SidebarToast.tsx         sidebar one-line toast: archive Undo/View, failed saves
   SidebarIcons.tsx         sidebar stroke icons
+  TodoPanel.tsx            right-panel to-do list: grouped by project, one click runs a to-do
   ChatWindow.tsx           chat composition + completion sound
   ChatInput.tsx            input bar + model/thinking/tools/compact controls
   MessageView.tsx          one message (user/assistant/toolCall/toolResult)
@@ -255,6 +261,7 @@ hooks/
   useResizablePanel.ts     drag/keyboard panel size kept per key; persistClamp: false never saves a short window's clamp
   usePrismLanguages.ts     true once the Prism languages are loaded; starts the load for a highlighter
   useTheme.ts              theme state
+  useTodos.ts              the to-do panel's data: one action at a time, the server answers the list
   useTerminalTheme.ts      the terminal's own dark/light choice (localStorage), apart from the app theme
 ```
 
@@ -275,6 +282,7 @@ Design decisions and traps live in `docs/agents/`, one note per area. Read every
 - [settings-ui.md](docs/agents/settings-ui.md): General's sidebar file-browser choice, Plugins and Skills routes, sidebar group switches, the shared `SettingsUi` blocks every settings panel and add pane uses. Files: `app/api/plugins/**`, `app/api/skills/**`, `lib/skills-service.ts`, `components/SettingsUi.tsx`, `components/settings-ui-helpers.ts`, `components/SkillsConfig.tsx`, `components/PluginsConfig.tsx`, `hooks/useFilesPlacement.ts`; also before adding a settings section or add pane.
 - [side-sessions.md](docs/agents/side-sessions.md): side chats (ADR 0007): the Fork copy with a `pi-web:side` entry inside the bounded head read, the `side` relation kind and family fold, the parent's session minus tools (an allow-list of exactly its tools), the hidden boundary message and where each provider's request puts the tool change, `/side`, the tab shared with subagents, usage that skips inherited entries. Files: `lib/side-session.ts`, `lib/session-fork.ts`, `lib/session-family.ts`, `lib/session-delete.ts`, `lib/session-reader.ts`, side handling in `lib/rpc-manager.ts`, `app/api/sessions/[id]/fork/route.ts`, `app/api/sessions/stats/route.ts`, `components/SessionChatPanel.tsx`, `components/TabBar.tsx`, `components/AgentSessionPanel.tsx`, `components/ChatInput.tsx`, `hooks/useAgentSession.ts`, `lib/side-chat-client.ts`, side handling in `components/AppShell.tsx`.
 - [subagents.md](docs/agents/subagents.md): the built-in subagent setting, profiles and their files, run status, completion notifications, the subagent tab. Files: `lib/subagent*.ts`, `app/api/subagents/**`, `components/AgentsConfig.tsx`, `components/SessionChatPanel.tsx`.
+- [todos.md](docs/agents/todos.md): the human to-do list (`pi-web-todos.json`): two stored states and four derived ones, the locked atomic store, `/api/todos`, starting a session in the to-do's project (serialised, reused only while running), `todo_complete` injected into that session alone, and the right-panel panel behind the sidebar's footer row. Files: `lib/todos*.ts`, `lib/builtin-todo-extension.ts`, `app/api/todos/route.ts`, `hooks/useTodos.ts`, `components/TodoPanel.tsx`, its footer row in `lib/session-tree.ts` / `components/SessionTree.tsx` / `components/SessionSidebar.tsx`, its tab in `components/TabBar.tsx` and `components/AppShell.tsx`.
 - [client-platform.md](docs/agents/client-platform.md): the global shortcuts (Ctrl+Alt+N on macOS's dead-key Option+N and Windows AltGr, Esc stacking), mobile software keyboard and viewport height, the terminal's extra keys, its own dark/light theme and its font size following the chat's, completion sound, the launcher opening the browser only after the first page is served. Files: `hooks/useKeyboardShortcuts.ts`, `hooks/useViewportHeight.ts`, `hooks/useAudio.ts`, `components/TerminalExtraKeys.tsx`, `lib/terminal-extra-keys.ts`, `lib/terminal-theme.ts`, `hooks/useTerminalTheme.ts`, `terminalFontSize()` in `hooks/useChatAppearance.ts`, the keyboard-open CSS, `bin/browser-opener.js`, the browser opening in `bin/pi-web.js`.
 
 ---
